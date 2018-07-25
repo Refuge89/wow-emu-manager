@@ -1,0 +1,27 @@
+{% extends "main_template.html" %}
+
+{% block title %}
+Registration
+{% end %}
+
+{% block content %}
+    <div id="message">
+        <p>
+            Here you can create your account with all it's gory glory.
+            </br>
+            Username / password must not exceed 16 characters.
+        </p>
+        <p>
+            Also, i won't let you create account that has anything other than printable ASCII latin letters and numbers.
+        </p>
+    </div>
+    <div id="registration_form">
+        <form action="/register" method="POST">
+            <p><input type="text" maxlength="16" name="l" value="Username"/></p>
+            <p><input type="password" maxlength="16" name="p" value="Password"/></p>
+            <input type="hidden" name="just_registered" value="yes"/>
+            <input id="registration_submit" type="submit" value=""/>
+            {% module xsrf_form_html() %}
+        </form>
+    </div>
+{% end %}

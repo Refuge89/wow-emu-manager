@@ -1,0 +1,195 @@
+html, body {
+    background-color: black;
+    color: orange;
+    margin: 0px;
+    padding: 0px;
+    font-family: arial, helvetica, sans-serif;
+    font-size: 12px;
+    min-width: 700px;
+}
+
+#message {
+    margin-top: 10px;
+    text-align: center;
+    /* font-weight: bold; */
+    font-size: 15px;
+}
+
+#message a {
+    color: black;
+    font-weight: bold;
+}
+
+#link_home {
+    margin-top: 67px;
+    position: relative;
+    float: left;
+    color: orange;
+    font-weight: bold;
+    margin-left: 24px;
+}
+
+#registration_form {
+    text-align: center;
+}
+
+#registration_submit {
+    background-image: url("/static/images/create_account-button.gif");
+    width: 174px;
+    height: 46px;
+}
+
+#bg-top {
+    background: url("images/page-bg-top.jpg") repeat-x 0 0;
+    margin-bottom: -88px;
+    height: 88px;
+}
+
+#bg-bot {
+    background: url("images/page-bg-bot.jpg") repeat-x 0 0;
+    height: 20px;
+}
+
+#header, #center, #center-border-top, #center-border-bot {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 700px;
+}
+
+#header {
+    height: 88px;
+}
+
+#profilebox {
+    position: relative;
+    float: right;
+    margin-right: 5px;
+    margin-top: 32px;
+    width: 430px;
+    height: 34px;
+    text-align: right;
+    font-weight: bold;
+    z-index: 99;
+}
+
+#profilebox a {
+    color: orange;
+    margin-right: 10px;
+    margin-top: 1px;
+}
+
+#pbox_mid {
+    background-image: url("images/pbox-mid.gif");
+    width: 396px;
+    height:27px;
+    float: left;
+    padding-top: 7px;
+}
+
+#pbox_mid * {
+    vertical-align: middle;
+}
+
+#pbox_mid form {
+    margin: 0px;
+}
+
+#pbox_mid input, #registration_form input {
+    background-color: #040D1A;
+    border-color: #7F7F7F;
+    color: #FFAC04;
+    font-size: 12px;
+}
+
+#pbox_fields_off {
+    height: 22px;
+    padding-top: 5px;
+    padding-left: 10px;
+    float: left;
+}
+
+#pbox_fields_on {
+    padding-top: 2px;
+    float: right;
+}
+
+#pbox_controls {
+    float: right;
+    padding-top: 1px;
+}
+
+#pbox_left {
+    background-image: url("images/pbox-left.gif");
+    width: 16px;
+    height: 34px;
+    float: left;
+}
+
+#pbox_right {
+    background-image: url("images/pbox-right.gif");
+    width: 8px;
+    height: 34px;
+    float: left;
+}
+
+#center-border-top-mid, #center-border-bot-mid {
+    width: 100%;
+}
+
+#center, #center-border-top, #center-border-bot {
+    display: flex;
+    flex-flow: row nowrap;
+}
+
+#center-border-bot-left, #center-border-bot-right, #center-border-top-left, #center-border-top-right {
+    min-width: 113px;
+    flex: auto;
+}
+
+#center-border-mid-left, #center-border-mid-right {
+    min-width: 57px;
+}
+
+#center-border-top-left {
+    background: url("images/border-top-left.gif") no-repeat top left;
+}
+
+#center-border-top-mid {
+    background: url("images/border-top.gif") repeat-x bottom;
+    min-height: 45px;
+}
+
+#center-border-top-right {
+    background: url("images/border-top-right.gif") no-repeat top right;
+}
+
+#center-border-mid-left {
+    background: url("images/border-left.gif") repeat-y top left;
+}
+
+#center-border-mid-right {
+    background: url("images/border-right.gif") repeat-y top right;
+}
+
+#center-border-bot-left {
+    background: url("images/frame_bottom-left.jpg") no-repeat top left;
+}
+
+#center-border-bot-mid {
+    background: url("images/border-bot.gif") repeat-x 0 0;
+    height: 75px;
+}
+
+#center-border-bot-right {
+    background: url("images/frame_bottom-right.jpg") no-repeat top right;
+}
+
+#content {
+    background-image: url("images/content-bg-plain.jpg");
+    flex: auto;
+    min-height: 72vh;
+    overflow: auto;
+    color: black;
+    word-wrap: break-word;
+    padding-bottom: 20px;
+}

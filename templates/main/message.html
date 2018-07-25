@@ -1,0 +1,13 @@
+{% extends "main_template.html" %}
+
+{% block title %}
+It Yells At You
+{% end %}
+
+{% block content %}
+    <div id="message">
+        <p>
+            {% raw MESSAGE %}
+        </p>
+    </div>
+{% end %}
