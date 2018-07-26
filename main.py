@@ -20,95 +20,8 @@ import hashlib
 
 import mysql.connector as mariadb
 
-
-###
-### Strings!
-###
-
-MSG_LONG_PASS = """
-    <h2>The Bigger isn't exactly The Better</h2>
-    <p>
-        Sadly, The Burning Crusade client won't let you in if your password is longer than 16 ASCII characters (or 8 Unicode characters)
-    </p>
-    <p>
-        Thus, there's no use in letting you create longer password :c
-    </p>
-    <p>
-        Feel free to return to the registration page by pressing \"Back\" in your browser to try again, but remember - size matters!
-    </p>
-    <p>
-        Or you can <a href='/'>[Return to Main Page]</a>
-    </p>
-    """
-
-MSG_LONG_NAME = """
-    <h2>Size matters</h2>
-    <p>
-        Sometimes you think the bigger is the better.
-        </br>
-        That's before you meet World of Warcraft!
-        </br>
-        This game doesn't like long usernames, yours included. Try again.
-    </p>
-    <p>
-        Now, you can totally click "back" and return to the registration form,
-        </br>
-        or you can <a href="/">[Return to Main Page]</a>
-    </p>
-    """
-
-MSG_BAD_NAME = """
-    <h2>I have warned you</h2>
-    <p>
-        Use only ASCII alphanumeric characters, please.
-    </p>
-    <p>
-        Now return back to registration page or...
-    </p>
-    <p>
-        <a href="/">[Return to Main Page]</a>
-    </p>
-    """
-
-MSG_SWAG_404 = """
-    <h2>404: Well, Loads of Bollock</h2>
-    <p>
-        This has no real meaning for now. Or ever.
-    </p>
-    <!-- You've got 404'd! -->
-    <a href='/'>[Return to Main Page]</a>
-    """
-
-MSG_ACC_CREATED = """
-    <h2>Account Created</h2>
-    <p>
-    Your account has been successfuly created, try to login to it now.
-    </p>
-    """
-
-MSG_ACC_EXISTS = """
-    <h2>Account Already Exists</h2>
-    <p>
-        This name is taken, return by clicking "back" in your browser, or...
-    </p>
-    <p>
-        <a href="/">[Return to Main Page]</a>
-    </p>
-    """
-
-MSG_REG_FAST = """
-    <h2>WAIT A MINUTE...</h2>
-    <p>
-        GOTTAGOFAST. You're attempting to create too many accounts in short amount of time.
-    </p>
-    <p>
-        Don't do that, please. Enter the Chill Zone.
-    </p>
-    """
-
-###
-### EOF Strings
-###
+# Grab all our strings!
+from tempest_strings import *
 
 
 def get_config():
@@ -158,7 +71,7 @@ def get_config():
             # Encode Python objects into JSON string
             config_json.write( json.dumps(CONFIG, sort_keys=True, indent=4) )
 
-    # Check if all the we have all the values we need
+    # Check if we have all the values we need
     if (CONFIG['SECRET'] == "CHANGEME" or len(CONFIG['SECRET']) < 30 or
         not CONFIG['DB_USER'] or not CONFIG['DB_PASS'] or not CONFIG['DB_NAME_REALMD']):
 
@@ -204,7 +117,6 @@ class IndexHandler(tornado.web.RequestHandler):
 
         self.DATA = {}
         self.CONFIG = CONFIG
-        self.DATA['BLIZZ_COPY'] = MSG_BLIZZ_COPY
 
         # Check the user-cookie for active login!
         if (self.current_user):  # FIXME: But is this even needed?
@@ -340,6 +252,7 @@ class ProfileHandler(IndexHandler):
             self.send_message(MSG_SWAG_404)
 
 
+# Make sure we aren't being used as someone's module!
 if __name__ == "__main__":
     CONFIG = get_config()
 
@@ -364,4 +277,5 @@ if __name__ == "__main__":
         print(error)
         quit()
 
+    # Finally, run the thing.
     main()
