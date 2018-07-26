@@ -9,6 +9,8 @@ html, body {
 }
 
 #message {
+    display: flex;
+    flex-flow: column nowrap;
     margin-top: 10px;
     text-align: center;
     /* font-weight: bold; */
