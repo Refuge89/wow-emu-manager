@@ -18,6 +18,8 @@ import json
 
 import hashlib
 
+from contextlib import contextmanager
+
 import mysql.connector as mariadb
 
 # Grab all our strings!
@@ -37,7 +39,7 @@ def get_config():
                 CONFIG = json.loads( config_json.read() )
             except:
                 print("### Couldn't load the config! ###")
-                return None
+                quit()
 
     else:
         # Open for write
@@ -58,6 +60,8 @@ def get_config():
                 "DB_ADDR": "127.0.0.1",
                 "DB_PORT": "3306",
                 # Realmd database name
+                "DB_NAME_CHARS": "",
+                "DB_NAME_CORE": "",
                 "DB_NAME_REALMD": "",
                 # Where to listen for client connections,
                 # The default is intentionally not 80,
@@ -69,16 +73,42 @@ def get_config():
                 "DEFAULT_ADDON": 1
             }
             # Encode Python objects into JSON string
-            config_json.write( json.dumps(CONFIG, sort_keys=True, indent=4) )
+            config_json.write( json.dumps(CONFIG, indent=4) )
 
     # Check if we have all the values we need
     if (CONFIG['SECRET'] == "CHANGEME" or len(CONFIG['SECRET']) < 30 or
         not CONFIG['DB_USER'] or not CONFIG['DB_PASS'] or not CONFIG['DB_NAME_REALMD']):
 
         print("### You need to adjust default settings in config.json before running this. ###")
-        return None
+        quit()
 
     return CONFIG
+
+@contextmanager
+def call_db():
+    """This one grabs DB connections and puts them into respective objects."""
+    # It is assumed that you use one user to access all three DB
+    temp_config = {
+        'host': CONFIG['DB_ADDR'],
+        'port': CONFIG['DB_PORT'],
+        'user': CONFIG['DB_USER'],
+        'password': CONFIG['DB_PASS'],
+    }
+
+    db_chars = mariadb.connect(database=CONFIG['DB_NAME_CHARS'], **temp_config)
+    db_core = mariadb.connect(database=CONFIG['DB_NAME_CORE'], **temp_config)
+    db_realmd = mariadb.connect(database=CONFIG['DB_NAME_REALMD'], **temp_config)
+
+    try:
+        yield {'chars': db_chars, 'core': db_core, 'realmd': db_realmd}
+
+    except mariadb.Error as error:
+        print(error)
+
+    finally:
+        db_chars.close()
+        db_core.close()
+        db_realmd.close()
 
 
 def main():
@@ -105,9 +135,6 @@ def main():
     # Main event and I/O loop
     tornado.ioloop.IOLoop.instance().start()
 
-    if ( CONFIG['db_conn'] ):
-        CONFIG['db_conn'].close()
-
 
 class IndexHandler(tornado.web.RequestHandler):
     """Root page handler, it's what other handlers in here will inherit from"""
@@ -131,11 +158,22 @@ class IndexHandler(tornado.web.RequestHandler):
 
 
     def reach_db(self, db_name, query):
-        """Executes a query against connected DB and returns the result"""
+        """Executes a query against connected DB and returns the result
+        Arguments:
+            db_conn     Connection object to attach cursor to.
+            query       Query string to run against the DB.
+        """
         results = None
 
+        if (db_name):
+            db_conn = conn_bundle[db_name]
+
+        else:
+            print("### I don't know what you're trying to connect to, shutting down :D ###")
+            quit()
+
         # Enter the DB in question
-        db_cur = self.CONFIG['db_conn'].cursor()
+        db_cur = db_conn.cursor()
 
         try:  # Attempt to fetch auth data from DB.
             db_cur.execute(query)
@@ -144,6 +182,9 @@ class IndexHandler(tornado.web.RequestHandler):
 
         except mariadb.Error as error:
             print(error)
+            quit()
+            # TODO: Custom pages for 404 and 500
+            #self.send_message(MSG_ERROR_500)
 
         return results
 
@@ -177,7 +218,7 @@ class LoginHandler(IndexHandler):
             logindata = self.get_credientals()
 
             query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
-            result = self.reach_db( self.CONFIG['DB_NAME_REALMD'], query )
+            result = self.reach_db("realmd", query)
 
             # Idea is that our query will be empty if it won't find an account+hash
             # pair, while Tornado handles all escaping
@@ -231,16 +272,16 @@ class RegistrationHandler(IndexHandler):
 
             # Check if account exists
             query = "SELECT `username` FROM `account` WHERE `username` = '{}'".format(regdata[0])
-            result = self.reach_db( self.CONFIG['DB_NAME_REALMD'], query )
+            result = self.reach_db("realmd", query)
 
             if (result):
                 self.send_message(MSG_ACC_EXISTS)
                 return
 
             # Register new account
-            query = "INSERT INTO `account` (`username`, `sha_pass_hash`) \
+            query = "INSERT INTO `account` (`username`, `sha_pass_hash`, `expansion`) \
                      VALUES ('{0}', '{1}', '{2}')".format( regdata[0], regdata[1], self.CONFIG['DEFAULT_ADDON'] )
-            self.reach_db( self.CONFIG['DB_NAME_REALMD'], query )
+            self.reach_db("realmd", query)
             self.send_message(MSG_ACC_CREATED)
         else:
             redirect("/")
@@ -256,26 +297,6 @@ class ProfileHandler(IndexHandler):
 if __name__ == "__main__":
     CONFIG = get_config()
 
-    # Errors are handled by the function.
-    if (not CONFIG):
-        quit()
-
-    # Establish DB connection.
-    CONFIG['db_conn'] = None
-    try:
-        CONFIG['db_conn'] = mariadb.connect(
-            user=CONFIG['DB_USER'],
-            password=CONFIG['DB_PASS'],
-            database=CONFIG['DB_NAME_REALMD'],
-            host=CONFIG['DB_ADDR'],
-            port=CONFIG['DB_PORT']
-        )
-
-    except mariadb.Error as error:
-        if ( CONFIG['db_conn'] ):
-            CONFIG['db_conn'].close()
-        print(error)
-        quit()
-
-    # Finally, run the thing.
-    main()
+    # This closes DB connections at the end on it's own!
+    with call_db() as conn_bundle:
+        main()
