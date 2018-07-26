@@ -18,6 +18,8 @@ import json
 
 import hashlib
 
+import sqlite3
+
 from contextlib import contextmanager
 
 import mysql.connector as mariadb
@@ -84,9 +86,9 @@ def get_config():
 
     return CONFIG
 
-@contextmanager
+@contextmanager  # This part helps to close connections no matter what "with"-style.
 def call_db():
-    """This one grabs DB connections and puts them into respective objects."""
+    """This one grabs DB connections, attempts to yield a dictionary with mapped connection objects."""
     # It is assumed that you use one user to access all three DB
     temp_config = {
         'host': CONFIG['DB_ADDR'],
@@ -98,9 +100,10 @@ def call_db():
     db_chars = mariadb.connect(database=CONFIG['DB_NAME_CHARS'], **temp_config)
     db_core = mariadb.connect(database=CONFIG['DB_NAME_CORE'], **temp_config)
     db_realmd = mariadb.connect(database=CONFIG['DB_NAME_REALMD'], **temp_config)
+    db_internal = sqlite3.connect('internal.db')
 
     try:
-        yield {'chars': db_chars, 'core': db_core, 'realmd': db_realmd}
+        yield {'chars': db_chars, 'core': db_core, 'realmd': db_realmd, 'internal': db_internal}
 
     except mariadb.Error as error:
         print(error)
@@ -109,6 +112,7 @@ def call_db():
         db_chars.close()
         db_core.close()
         db_realmd.close()
+        db_internal.close()
 
 
 def main():
@@ -157,11 +161,16 @@ class IndexHandler(tornado.web.RequestHandler):
         return self.get_secure_cookie("username")
 
 
-    def reach_db(self, db_name, query):
+    def reach_db(self, db_name, query, mode):
         """Executes a query against connected DB and returns the result
         Arguments:
             db_conn     Connection object to attach cursor to.
+                        Possible values are:
+                        "chars", "core", "realmd", "internal"
+
             query       Query string to run against the DB.
+
+            mode        "fetchall" or "fetchone" respectively.
         """
         results = None
 
@@ -175,10 +184,15 @@ class IndexHandler(tornado.web.RequestHandler):
         # Enter the DB in question
         db_cur = db_conn.cursor()
 
-        try:  # Attempt to fetch auth data from DB.
+        try:  # Attempt to fetch data from DB.
             db_cur.execute(query)
             # Walk over results
-            results = db_cur.fetchone()
+            if (mode == "fetchone"):
+                results = db_cur.fetchone()
+            elif (mode == "fetchall"):
+                results = db_cur.fetchall()
+            else:
+                results = None
 
         except mariadb.Error as error:
             print(error)
@@ -218,7 +232,7 @@ class LoginHandler(IndexHandler):
             logindata = self.get_credientals()
 
             query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
-            result = self.reach_db("realmd", query)
+            result = self.reach_db("realmd", query, "fetchone")
 
             # Idea is that our query will be empty if it won't find an account+hash
             # pair, while Tornado handles all escaping
@@ -272,7 +286,7 @@ class RegistrationHandler(IndexHandler):
 
             # Check if account exists
             query = "SELECT `username` FROM `account` WHERE `username` = '{}'".format(regdata[0])
-            result = self.reach_db("realmd", query)
+            result = self.reach_db("realmd", query, "fetchone")
 
             if (result):
                 self.send_message(MSG_ACC_EXISTS)
@@ -281,7 +295,7 @@ class RegistrationHandler(IndexHandler):
             # Register new account
             query = "INSERT INTO `account` (`username`, `sha_pass_hash`, `expansion`) \
                      VALUES ('{0}', '{1}', '{2}')".format( regdata[0], regdata[1], self.CONFIG['DEFAULT_ADDON'] )
-            self.reach_db("realmd", query)
+            self.reach_db("realmd", query, "fetchone")
             self.send_message(MSG_ACC_CREATED)
         else:
             redirect("/")
