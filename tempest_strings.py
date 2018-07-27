@@ -2,6 +2,9 @@
 ### Strings!
 ###
 
+# This file holds strings for messages sent to user via send_message(),
+# they are being sent in RAW mode, so you can and SHOULD use proper HTML here.
+
 MSG_LONG_PASS = """
     <h2>The Bigger isn't exactly The Better</h2>
     <p>
