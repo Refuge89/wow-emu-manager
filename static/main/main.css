@@ -20,6 +20,11 @@ html, body {
 #message a {
     color: black;
     font-weight: bold;
+    text-align: center;
+}
+
+.msg-just {
+    text-align: justify;
 }
 
 #link_home {

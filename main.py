@@ -223,10 +223,36 @@ class IndexHandler(tornado.web.RequestHandler):
 
 
     def get_credientals(self):
-        """Simply grabs field data from forms"""
-        # Can you imagine? This shit is escaped by Tornado itself! XD
+        """Simply grabs field data from forms,
+           if it won't like any of the fields user will see an error message
+           via send_message() and the function will return None, so handle it.
+        """
+
         login_field = self.get_argument("l").upper()
         psswd_field = self.get_argument("p").upper()
+
+        bad_creds = False
+
+        # If username is fucky...
+        if ( not login_field.isalnum() ):
+            bad_creds = True
+
+        # If username or password are empty...
+        if (not login_field or not psswd_field):
+            bad_creds = True
+
+        # If password is longer than...
+        if (len(psswd_field) > 16):
+            bad_creds = True
+
+        # If username is longer than...
+        if (len(login_field) > 16):
+            bad_creds = True
+
+        # If we don't like the credientals:
+        if (bad_creds):
+            self.send_message(MSG_BAD_CREDS)
+            return None
 
         # Calculate password hashes! SHA1 of user:pass
         psswd_dough = login_field + ":" + psswd_field
@@ -252,6 +278,11 @@ class LoginHandler(IndexHandler):
         # Prevent people from getting where they shouldn't be :D
         if ( not self.DATA['USERNAME'] or not self.CONFIG['LOGIN_DISABLED'] ):
             logindata = self.get_credientals()
+
+            # get_credientals() didn't like something, just dropping the request.
+            # It will do the messaging itself.
+            if (not logindata):
+                return
 
             query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
             result = self.reach_db("realmd", query, "fetchone")
@@ -286,24 +317,7 @@ class RegistrationHandler(IndexHandler):
 
             regdata = self.get_credientals()
 
-            # If password is longer than...
-            if (len(regdata[2]) > 16):
-                self.send_message(MSG_LONG_PASS)
-                return
-
-            # If username is longer than...
-            if (len(regdata[0]) > 16):
-                self.send_message(MSG_LONG_NAME)
-                return
-
-            # If username or password are empty...
-            if (not regdata[0] or not regdata[2]):
-                self.redirect("/register")
-                return
-
-            # If username is anything other than alphanumeric:
-            if ( not regdata[0].isalnum() ):
-                self.send_message(MSG_BAD_NAME)
+            if (not regdata):
                 return
 
             # Check if account exists
