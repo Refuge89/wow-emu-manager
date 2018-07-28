@@ -14,6 +14,7 @@ MSG_BAD_CREDS = """
             <li>You're using something else than ASCII alphanumeric characters for your username or password.</li>
             <li>Login and / or Password fields are empty.</li>
             <li>Login and / or Password are just too darn long.</li>
+            <li>Login and / or Password are incorrect.</li>
             <li>You're a nasty wombat and are trying to SQLinj, XSS or whatnot.</li>
         </ul>
     </p>
@@ -58,7 +59,7 @@ MSG_SWAG_404 = """
 MSG_ACC_CREATED = """
     <h2>Account Created</h2>
     <p>
-    Your account has been successfuly created, try to login to it now.
+        Your account has been successfuly created, try to login to it now.
     </p>
     """
 
@@ -66,6 +67,26 @@ MSG_ACC_EXISTS = """
     <h2>Account Already Exists</h2>
     <p>
         This name is taken, return by clicking "back" in your browser, or...
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
+
+MSG_LOGIN_DISABLED = """
+    <h2>Login Disabled</h2>
+    <p>
+        Site's owner has disabled ability to log in for now.
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
+
+MSG_REG_DISABLED = """
+    <h2>Registration Disabled</h2>
+    <p>
+        Site's owner has disallowed new registrations.
     </p>
     <p>
         <a href="/">[Return to Main Page]</a>

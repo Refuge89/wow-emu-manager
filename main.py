@@ -216,8 +216,6 @@ class IndexHandler(tornado.web.RequestHandler):
         except mariadb.Error as error:
             print(error)
             quit()
-            # TODO: Custom pages for 404 and 500
-            #self.send_message(MSG_ERROR_500)
 
         return results
 
@@ -276,21 +274,31 @@ class IndexHandler(tornado.web.RequestHandler):
 class LoginHandler(IndexHandler):
     def post(self):
         # Prevent people from getting where they shouldn't be :D
-        if ( not self.DATA['USERNAME'] or not self.CONFIG['LOGIN_DISABLED'] ):
-            logindata = self.get_credientals()
+        if (self.DATA['USERNAME']):
+            self.redirect("/")
+            return
 
-            # get_credientals() didn't like something, just dropping the request.
-            # It will do the messaging itself.
-            if (not logindata):
-                return
+        if (self.CONFIG['LOGIN_DISABLED']):
+            self.send_message(MSG_LOGIN_DISABLED)
+            return
 
-            query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
-            result = self.reach_db("realmd", query, "fetchone")
+        logindata = self.get_credientals()
 
-            # Idea is that our query will be empty if it won't find an account+hash
-            # pair, while Tornado handles all escaping
-            if (result):
-                self.set_secure_cookie("username", logindata[0])
+        # get_credientals() didn't like something, just dropping the request.
+        # It will do the messaging itself.
+        if (not logindata):
+            return
+
+        query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
+        result = self.reach_db("realmd", query, "fetchone")
+
+        # Idea is that our query will be empty if it won't find an account+hash
+        # pair, while Tornado handles all escaping
+        if (result):
+            self.set_secure_cookie("username", logindata[0])
+        else:
+            self.send_message(MSG_BAD_CREDS)
+            return
 
         self.redirect("/")
 
@@ -312,9 +320,11 @@ class RegistrationHandler(IndexHandler):
 
 
     def post(self):
-        if ( (not self.DATA['USERNAME'] and self.get_argument("just_registered") == "yes")
-            or not self.CONFIG['REG_DISABLED'] ):
+        if (self.CONFIG['REG_DISABLED']):
+            self.send_message(MSG_REG_DISABLED)
+            return
 
+        if (not self.DATA['USERNAME'] and self.get_argument("just_registered") == "yes"):
             regdata = self.get_credientals()
 
             if (not regdata):
