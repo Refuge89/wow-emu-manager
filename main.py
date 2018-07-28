@@ -28,8 +28,13 @@ import mysql.connector as mariadb
 from tempest_strings import *
 
 
-def get_config():
+###
+### Core Machinery: The Core Stuff like preparing the server environment,
+###                 getting the DB connections and loading configs.
+###
 
+
+def get_config():
     SERVER_ROOT = pathlib.Path('.')
     CONFIG_FILE = SERVER_ROOT / 'config.json'
 
@@ -140,8 +145,22 @@ def main():
     tornado.ioloop.IOLoop.instance().start()
 
 
+###
+### EOF Core Machinery
+###
+
+
+###
+### Handlers: These handle page requests.
+###
+
+
 class IndexHandler(tornado.web.RequestHandler):
     """Root page handler, it's what other handlers in here will inherit from"""
+
+    ###
+    ### Below are "helper" methods that doesn't directly render anything.
+    ###
 
     def prepare(self):
         """This is executed before _every_ HTTP method"""
@@ -215,6 +234,9 @@ class IndexHandler(tornado.web.RequestHandler):
 
         return [login_field, psswd_hash, psswd_field]
 
+    ###
+    ### Below are things that directly render stuff
+    ###
 
     def send_message(self, MESSAGE):
         """This one sends a message to the user wrapped in a nice template."""
@@ -305,6 +327,12 @@ class ProfileHandler(IndexHandler):
     def get(self):
         if ( self.DATA['USERNAME'] ):
             self.send_message(MSG_SWAG_404)
+
+
+
+###
+### EOF Handlers
+###
 
 
 # Make sure we aren't being used as someone's module!
