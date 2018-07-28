@@ -193,7 +193,6 @@ class IndexHandler(tornado.web.RequestHandler):
         """
         results = None
 
-        if (db_name):
             db_conn = conn_bundle[db_name]
 
         else:
