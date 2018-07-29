@@ -6,20 +6,20 @@ better than what it was before; thus by my decree - it will happen! -->
         <!-- If you're a chrome user - the black thingies happen around on chrome's whim,
         seriously. You, guys, and your jpg-renderer are like that. Lookin' great in FF :D -->
         <meta charset="utf-8"/>
-        <meta name="viewport" content="width=700px,initial-scale = 1.0,maximum-scale = 1.0"/>
+        <meta name="viewport" content="initial-scale = 1.0,maximum-scale = 1.0"/>
         <title>{{ CONFIG['PAGE_TITLE'] }}{% block title %}{% end %}</title>
         <link rel="stylesheet" href="{{ static_url('main.css') }}"/>
         <!--<link rel="favicon" href="{{ static_url('images/favicon.ico') }}"/>-->
         <link rel="license" href="https://github.com/me-shaon/GLWTPL/blob/master/LICENSE"/>
-        <!-- "Tempest CMS", BECAUSE WE GOTTA BE BOLD WITH OUR NAMING. -->
     </head>
+    <!-- "Tempest CMS", BECAUSE WE GOTTA BE BOLD WITH OUR NAMING. -->
     <body>
-        <!-- I mean, there's HTML5 for that, but i'll be a bit more conservative for now -->
-        <div id="bg-top"></div>
+        <!-- It's all flex now, are you happy? -->
         <div id="header">
-            <a id="link_home" href="/">Frontpage</a>
+            <div id="linkbox-top">
+                <a href="/">Frontpage</a>
+            </div>
             <div id="profilebox">
-                <!-- Oh, don't even begin - I KNOW. Alright? I KNOW. -->
                 <span id="pbox_left"></span>
                 <span id="pbox_mid">
                         {% if ( DATA['USERNAME'] ) %}
@@ -47,28 +47,30 @@ better than what it was before; thus by my decree - it will happen! -->
                 <span id="pbox_right"></span>
             </div>
         </div>
-        <div id="center-border-top">
-            <div id="center-border-top-left"></div>
-            <div id="center-border-top-mid"></div>
-            <div id="center-border-top-right"></div>
-        </div>
-        <div id="center">
-            <div id="left_pane">
+        <div id="main-container">
+            <div id="center-border-top">
+                <div id="center-border-top-left"></div>
+                <div id="center-border-top-mid"></div>
+                <div id="center-border-top-right"></div>
             </div>
-            <div id="center-border-mid-left"></div>
-            <div id="content">
-                {% block content %}
-                {% end %}
+            <div id="center">
+                <div id="left_pane">
+                </div>
+                <div id="center-border-mid-left"></div>
+                <div id="content">
+                    {% block content %}
+                    {% end %}
+                </div>
+                <div id="center-border-mid-right"></div>
+                <div id="right_pane">
+                </div>
             </div>
-            <div id="center-border-mid-right"></div>
-            <div id="right_pane">
+            <div id="center-border-bot">
+                <div id="center-border-bot-left"></div>
+                <div id="center-border-bot-mid"></div>
+                <div id="center-border-bot-right"></div>
             </div>
         </div>
-        <div id="center-border-bot">
-            <div id="center-border-bot-left"></div>
-            <div id="center-border-bot-mid"></div>
-            <div id="center-border-bot-right"></div>
-        </div>
-        <div id="bg-bot"></div>
+        <div id="footer">© All Images and Logos are Copyright 2010 Blizzard Entertainment</div>
     </body>
 </html>
