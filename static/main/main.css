@@ -27,7 +27,7 @@ html, body {
     text-align: justify;
 }
 
-#link_home {
+.header_link {
     margin-top: 67px;
     position: relative;
     float: left;

@@ -1,0 +1,27 @@
+{% extends "main_template.html" %}
+
+{% block title %}
+Armory - Character
+{% end %}
+
+{% block content %}
+    <div id="message">
+        <h2>
+            Armory - Character
+        </h2>
+        <p>
+            On this page you will find detailed information to a specific character.
+        </p>  
+        <p>
+            <!-- data: CHAR_DATA, fields = name, race, class, gender, level, online, chosentitle, health  -->
+            <h3>{{ CHAR_DATA['name'] }}</h3>
+            <p> race = {{ CHAR_DATA['race'] }}</p>
+            <p> class = {{ CHAR_DATA['class'] }}</p>
+            <p> gender = {{ CHAR_DATA['gender'] }}</p>
+            <p> level = {{ CHAR_DATA['level'] }}</p>
+            <p> online = {{ CHAR_DATA['online'] }}</p>
+            <p> chosentitle = {{ CHAR_DATA['chosentitle'] }}</p>
+            <p> health = {{ CHAR_DATA['health'] }}</p>
+        </p>
+    </div>
+{% end %}

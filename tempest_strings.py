@@ -93,6 +93,26 @@ MSG_REG_DISABLED = """
     </p>
     """
 
+MSG_NO_CHARACTERS = """
+    <h2>No characters found</h2>
+    <p>
+        There are no characters created yet. Better log in and create some!
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
+
+MSG_CHARACTER_NOT_FOUND = """
+    <h2>No character</h2>
+    <p>
+        This character does not exist yet.
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
+
 ###
 ### EOF Strings
 ###

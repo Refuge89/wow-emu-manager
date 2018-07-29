@@ -129,7 +129,10 @@ def main():
             (r"/login", LoginHandler),
             (r"/logout", LogoutHandler),
             (r"/register", RegistrationHandler),
-            (r"/profile", ProfileHandler)
+            (r"/profile", ProfileHandler),
+            (r"/armory", ArmoryOverviewHandler),
+            (r"/armory/characters/", ArmoryOverviewHandler),
+            (r"/armory/characters/([0-9]{1,11})", ArmoryCharacterDetailHandler)
         ],
         template_path = "templates/" + CONFIG['SITENAME'],
         static_path = "static/" + CONFIG['SITENAME'],
@@ -153,7 +156,6 @@ def main():
 ###
 ### Handlers: These handle page requests.
 ###
-
 
 class IndexHandler(tornado.web.RequestHandler):
     """Root page handler, it's what other handlers in here will inherit from"""
@@ -274,6 +276,30 @@ class IndexHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("index.html", CONFIG=self.CONFIG, DATA=self.DATA)
 
+class ArmoryOverviewHandler(IndexHandler):
+    def get(self):
+        # Get the needed character data from the database
+        # It wont be everything for now, just basic stuff to offer the user a selection of the characters
+        # That way he can decide which character he wants to inspect further :3
+        query = "SELECT guid, name FROM characters"
+        result = self.reach_db("chars", query, "fetchall")
+
+        if(result):
+            self.render("armory.html", CONFIG=self.CONFIG, DATA=self.DATA, CHARACTERS=result)
+        else:
+            self.send_message(MSG_NO_CHARACTERS)
+
+
+class ArmoryCharacterDetailHandler(IndexHandler):
+    def get(self, character_id):
+        ## Get all relevant character data from the database
+        query = "SELECT name, race, class, gender, level, online, chosentitle, health FROM characters where guid = {} LIMIT 1".format(character_id)
+        result = self.reach_db("chars", query, "fetchone")
+        
+        if(result):
+            self.render("armory_character_detail.html", CONFIG=self.CONFIG, DATA=self.DATA, CHAR_DATA=result)
+        else:
+            self.send_message(MSG_CHARACTER_NOT_FOUND)
 
 class LoginHandler(IndexHandler):
     def post(self):

@@ -1,0 +1,19 @@
+{% extends "main_template.html" %}
+
+{% block title %}
+Armory
+{% end %}
+
+{% block content %}
+    <div id="message">
+        <h2>
+            Armory
+        </h2>
+        <p>
+            On this page you will find a overview over every character on the realm. You can check out the character details after selecting a character and pressing the button.
+        </p> 
+                {% for character in CHARACTERS %}
+                    <a href="/armory/characters/{{ character['guid'] }}"><button type="button">{{ character['name'] }}</button></a>
+                {% end %}   
+    </div>
+{% end %}
