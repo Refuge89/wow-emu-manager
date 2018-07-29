@@ -193,14 +193,19 @@ class IndexHandler(tornado.web.RequestHandler):
         """
         results = None
 
+        try:
             db_conn = conn_bundle[db_name]
 
-        else:
+        except:
             print("### I don't know what you're trying to connect to, shutting down :D ###")
             quit()
 
         # Enter the DB in question
-        db_cur = db_conn.cursor()
+        if (db_name == "internal"):
+            db_conn.row_factory = sqlite3.Row
+            db_cur = db_conn.cursor()
+        else:
+            db_cur = db_conn.cursor(dictionary=True)
 
         try:  # Attempt to fetch data from DB.
             db_cur.execute(query)
@@ -255,7 +260,7 @@ class IndexHandler(tornado.web.RequestHandler):
         psswd_dough = login_field + ":" + psswd_field
         psswd_hash = hashlib.sha1( bytes(psswd_dough, "utf-8") ).hexdigest().upper()
 
-        return [login_field, psswd_hash, psswd_field]
+        return { 'login': login_field, 'hash': psswd_hash, 'pass': psswd_field }
 
     ###
     ### Below are things that directly render stuff
@@ -288,13 +293,13 @@ class LoginHandler(IndexHandler):
         if (not logindata):
             return
 
-        query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata[0], logindata[1])
+        query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata['login'], logindata['hash'])
         result = self.reach_db("realmd", query, "fetchone")
 
         # Idea is that our query will be empty if it won't find an account+hash
         # pair, while Tornado handles all escaping
         if (result):
-            self.set_secure_cookie("username", logindata[0])
+            self.set_secure_cookie("username", logindata['login'])
         else:
             self.send_message(MSG_BAD_CREDS)
             return
@@ -330,7 +335,7 @@ class RegistrationHandler(IndexHandler):
                 return
 
             # Check if account exists
-            query = "SELECT `username` FROM `account` WHERE `username` = '{}'".format(regdata[0])
+            query = "SELECT `username` FROM `account` WHERE `username` = '{}'".format(regdata['login'])
             result = self.reach_db("realmd", query, "fetchone")
 
             if (result):
@@ -339,7 +344,7 @@ class RegistrationHandler(IndexHandler):
 
             # Register new account
             query = "INSERT INTO `account` (`username`, `sha_pass_hash`, `expansion`) \
-                     VALUES ('{0}', '{1}', '{2}')".format( regdata[0], regdata[1], self.CONFIG['DEFAULT_ADDON'] )
+                     VALUES ('{0}', '{1}', '{2}')".format( regdata['login'], regdata['hash'], self.CONFIG['DEFAULT_ADDON'] )
             self.reach_db("realmd", query, "fetchone")
             self.send_message(MSG_ACC_CREATED)
         else:
