@@ -13,6 +13,9 @@ import tornado.web
 import tornado.escape
 import tornado.httpserver
 
+# The HTTPS support. The Placebo Green Lock In Browser.
+import ssl
+
 # Different data hauling between entities, like configs or long polling
 import json
 
@@ -68,6 +71,7 @@ def get_config():
                 "SITENAME": "main",
                 "PAGE_TITLE": "Tempest CMS | ",
                 "SECRET": "CHANGEME",
+                "SSL": False,
                 "DB_USER": "",
                 "DB_PASS": "",
                 "DB_ADDR": "127.0.0.1",
@@ -88,7 +92,7 @@ def get_config():
         exit("### Your config file is corrupted. Cannot continue. ###")
 
     # Check if config needs to be adjusted
-    if (CONFIG['SECRET'] == "CHANGEME" or len(CONFIG['SECRET']) < 30 or
+    if ( CONFIG['SECRET'] == "CHANGEME" or len(CONFIG['SECRET'] ) < 30 or
         not CONFIG['DB_USER'] or
         not CONFIG['DB_PASS'] or
         not CONFIG['DB_NAME_CHARS'] or
@@ -129,10 +133,39 @@ def call_db():
         connections['internal'].close()
 
 
+# FIXME: This is not da wae.
+def init_internal_db():
+    """This is a hacky thing to prepare internal DB if we think it's corrupted.
+       YES. BY WIPING IT. IF YOU HAVEN'T READ ABOVE IT'S A _HACKY_ WAY.
+    """
+
+    db_cur = conn_bundle['internal'].cursor()
+
+    try:
+        db_cur.execute("SELECT * FROM `news` LIMIT 1")
+
+    except sqlite3.OperationalError:
+        query = "CREATE TABLE `news` ( `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE, `text` TEXT, `header` TEXT, `timestamp` TEXT )"
+        db_cur.execute(query)
+
+
 def main():
     """Grab the command line args, prepare environment and run the engine"""
 
     tornado.options.parse_command_line()
+
+    modules = { 'FormatNews': FormatNews }
+
+    settings = { 'template_path': "templates/" + CONFIG['SITENAME'],
+                 'static_path': "static/" + CONFIG['SITENAME'],
+                 'cookie_secret': CONFIG['SECRET'],
+                 'xsrf_cookies': True,
+                 'autoreload': False,
+                 'ui_modules': modules }
+
+    # Dictionary of all modules used
+    modules = {'FormatNews': FormatNews}
+
     # Make an instance of web app and connect
     # some handlers to respective URL path regexps
     site = tornado.web.Application( handlers=[
@@ -141,17 +174,28 @@ def main():
             (r"/logout", LogoutHandler),
             (r"/register", RegistrationHandler),
             (r"/profile", ProfileHandler),
+            (r"/news", NewsHandler),
             (r"/shutdown", ShutdownHandler)
         ],
-        template_path = "templates/" + CONFIG['SITENAME'],
-        static_path = "static/" + CONFIG['SITENAME'],
-        cookie_secret = CONFIG['SECRET'],
-        xsrf_cookies = True,
-        autoreload = False
+        **settings
     )
 
-    http_server = tornado.httpserver.HTTPServer(site)
-    http_server.listen( CONFIG['SITE_PORT'] )
+    # FIXME: Ugly. Need to document it. Shit is done in a hurry :c
+    if ( CONFIG['SSL'] ):
+        # Prepare SSL
+        ssl_context = ssl.SSLContext()
+
+        try:
+            ssl_context.load_cert_chain("certs/fullchain.pem", "certs/privkey.pem")
+            https_server = tornado.httpserver.HTTPServer(site, ssl_options=ssl_context)
+            https_server.listen( CONFIG['SITE_PORT'] )
+
+        except:
+            safe_exit("### Can't grab SSL context: check your certificate / key. ###")
+    else:
+        http_server = tornado.httpserver.HTTPServer(site)
+        http_server.listen( CONFIG['SITE_PORT'] )
+
 
     # Main event and I/O loop
     tornado.ioloop.IOLoop.instance().start()
@@ -205,24 +249,20 @@ class IndexHandler(tornado.web.RequestHandler):
             mode        "fetchall" or "fetchone" respectively.
         """
 
-        try:
-            db_conn = conn_bundle[db_name]
-
-        except:
-            safe_exit("### I don't know what you're trying to connect to, shutting down :D ###")
-
-        # Enter the DB in question using either of the cursors for respective
-        # DB drivers: SQLite3 or MySQL-Connector-Python
-        if (db_name == "internal"):
-            db_conn.row_factory = sqlite3.Row
-            db_cur = db_conn.cursor()
-        else:
-            db_cur = db_conn.cursor(dictionary=True)
-
         # If an error occurs -- return object None
         results = None
 
-        try:  # Attempt to fetch data from DB.
+        try:
+            db_conn = conn_bundle[db_name]
+
+            # Enter the DB in question using either of the cursors for respective
+            # DB drivers: SQLite3 or MySQL-Connector-Python
+            if (db_name == "internal"):
+                db_conn.row_factory = sqlite3.Row
+                db_cur = db_conn.cursor()
+            else:
+                db_cur = db_conn.cursor(dictionary=True)
+
             db_cur.execute(query)
             # Walk over results
             if (mode == "fetchone"):
@@ -232,8 +272,12 @@ class IndexHandler(tornado.web.RequestHandler):
             else:
                 results = None
 
-        except mariadb.Error as error:
-            safe_exit(error)
+        except mariadb.Error:
+            safe_exit("### I don't know what you're trying to connect to, shutting down :D ###")
+
+        except sqlite3.OperationalError or mysql.error.OperationalError as err:
+            print("### Query error. ###")
+            print(err)
 
         return results
 
@@ -276,6 +320,16 @@ class IndexHandler(tornado.web.RequestHandler):
 
         return { 'login': login_field, 'hash': psswd_hash, 'pass': psswd_field }
 
+
+    def get_news(self, amount):
+        """Returns dictionary with certain amount of news entries in it"""
+
+        query = "SELECT `text`, `header`, `timestamp` FROM `news` ORDER BY `id` DESC LIMIT {}".format(amount)
+        entries = self.reach_db("internal", query, "fetchall")
+
+        return entries
+
+
     ###
     ### Below are things that directly render stuff
     ###
@@ -290,6 +344,7 @@ class IndexHandler(tornado.web.RequestHandler):
     def get(self):
         """Process GET request from clients"""
 
+        self.DATA['news'] = self.get_news(3)
         self.render("index.html", CONFIG=self.CONFIG, DATA=self.DATA)
 
 
@@ -381,6 +436,15 @@ class ProfileHandler(IndexHandler):
             self.send_message(MSG_SWAG_404)
 
 
+class NewsHandler(IndexHandler):
+    """We fetch 15 news entries and render them for user."""
+
+    def get(self):
+
+        self.DATA['news'] = self.get_news(15)
+        self.render("news.html", CONFIG=self.CONFIG, DATA=self.DATA)
+
+
 class ShutdownHandler(IndexHandler):
     def get(self):
 
@@ -395,8 +459,29 @@ class ShutdownHandler(IndexHandler):
             self.redirect("/")
 
 
+class SSLRedirectHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.redirect('https://' + self.request.host, permanent=False)
+
+
 ###
 ### EOF Handlers
+###
+
+
+###
+### Modules: Embeddable widgets of stuff with flexible functionality.
+###
+
+
+class FormatNews(tornado.web.UIModule):
+    def render(self, entries):
+
+        return self.render_string("module-news.html", entries=entries)
+
+
+###
+### EOF Modules
 ###
 
 
@@ -406,4 +491,5 @@ if __name__ == "__main__":
 
     # This closes DB connections at the end on it's own!
     with call_db() as conn_bundle:
+        init_internal_db()
         main()

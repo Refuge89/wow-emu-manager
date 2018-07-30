@@ -286,6 +286,28 @@ body {
 
 /* EOF Registration */
 
+/* News */
+
+#news {
+    font: small-caps 21px/24px georgia, "times new roman", times, serif;
+    letter-spacing: -1px;
+}
+
+.news-entry-header {
+    /* font: 10px georgia, "times new roman", times, serif; */
+}
+
+.news-entry-text {
+    border-bottom: 1px solid #b6904f;
+    /* font: 12px/19px "trebuchet ms", "times new roman", times, serif; */
+}
+
+.news-entry-timestamp {
+    /* font: 12px georgia, "times new roman", times, serif; */
+}
+
+/* EOF News */
+
 /*=============*/
 /* EOF Modules */
 /*=============*/
