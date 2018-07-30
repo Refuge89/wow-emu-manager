@@ -147,8 +147,7 @@ def main():
         static_path = "static/" + CONFIG['SITENAME'],
         cookie_secret = CONFIG['SECRET'],
         xsrf_cookies = True,
-        autoreload = False,
-        ui_modules = modules
+        autoreload = False
     )
 
     http_server = tornado.httpserver.HTTPServer(site)
