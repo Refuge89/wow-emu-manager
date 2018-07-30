@@ -180,6 +180,8 @@ def main():
         **settings
     )
 
+    https_server = None
+
     # FIXME: Ugly. Need to document it. Shit is done in a hurry :c
     if ( CONFIG['SSL'] ):
         # Prepare SSL
