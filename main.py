@@ -175,7 +175,8 @@ def main():
             (r"/register", RegistrationHandler),
             (r"/profile", ProfileHandler),
             (r"/news", NewsHandler),
-            (r"/shutdown", ShutdownHandler)
+            (r"/shutdown", ShutdownHandler),
+            (r"/serverstatus",ServerStatusHandler)
         ],
         **settings
     )
@@ -354,6 +355,34 @@ class IndexHandler(tornado.web.RequestHandler):
 
         self.DATA['news'] = self.get_news(3)
         self.render("index.html", CONFIG=self.CONFIG, DATA=self.DATA)
+
+class ServerStatusHandler(IndexHandler):
+    def get(self):
+
+        # Get all relevant data about server status from the database
+
+        query = "SELECT `name`, `address` FROM `realmlist` LIMIT 1"
+        result = self.reach_db('realmd', query, "fetchone")
+
+        data = {}
+
+        if (result):
+            data['name'] = result['name']
+            data['address'] = result['address']
+        else:
+            self.send_message(MSG_REALM_NOTFOUND)
+
+        query = "SELECT count(*) as 'amount' from characters where online = 1"
+        result = self.reach_db('chars', query, "fetchone")
+
+        if (result):
+            data['population'] = result['amount']
+            if (result['amount'] > 0):
+                data['status'] = "Online"
+            else:
+                data['status'] = "Offline"
+
+        self.render("server_status.html", CONFIG=self.CONFIG, DATA=self.DATA, SERVER_STATUS=data)
 
 
 class LoginHandler(IndexHandler):
