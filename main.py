@@ -187,6 +187,7 @@ def main():
 
         try:
             ssl_context.load_cert_chain("certs/fullchain.pem", "certs/privkey.pem")
+
             https_server = tornado.httpserver.HTTPServer(site, ssl_options=ssl_context)
             https_server.listen( CONFIG['SITE_PORT'] )
 
@@ -196,6 +197,11 @@ def main():
         http_server = tornado.httpserver.HTTPServer(site)
         http_server.listen( CONFIG['SITE_PORT'] )
 
+    # Spawn HTTP -> HTTPS redirect handler
+    if (https_server):
+        redirector = tornado.web.Application( handlers=[ (r"/.*", SSLRedirectHandler) ] )
+        http_server = tornado.httpserver.HTTPServer(redirector)
+        http_server.listen(80)
 
     # Main event and I/O loop
     tornado.ioloop.IOLoop.instance().start()
@@ -461,7 +467,10 @@ class ShutdownHandler(IndexHandler):
 
 class SSLRedirectHandler(tornado.web.RequestHandler):
     def get(self):
-        self.redirect('https://' + self.request.host, permanent=False)
+        if ( CONFIG['SITE_PORT'] != "443" ):
+            self.redirect('https://' + self.request.host + ":" + CONFIG['SITE_PORT'], permanent=False)
+        else:
+            self.redirect('https://' + self.request.host, permanent=False)
 
 
 ###
