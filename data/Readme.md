@@ -1,4 +1,7 @@
+# WARNING: This sql file will drop all tables in the characters/realmd database! I will not take responsibility for you nuking your data.
+
 ## cmangos dummy data
+
 The file 'dummydata.sql' contains dummy data to test the CMS.
 
 It has:
@@ -17,4 +20,3 @@ Login info:
 * test3/test3
 * and so on...
 
-WARNING: This sql file will drop all tables in the characters/realmd database! I also do not take responsibility for you nuking your data.
