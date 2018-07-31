@@ -1,4 +1,12 @@
+# These are personal files for each install, so you better _never_ share them.
+# ...the config
 config.json
-__pycache__/
+# ...internal DB
 internal.db
+# ...your friggin' SSL certs!
 certs/
+
+# These below are just some leftovers that shouldn't be tracked.
+# They don't have too much purpose when shared.
+__pycache__/
+workfiles/
