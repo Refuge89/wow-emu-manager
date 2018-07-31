@@ -95,6 +95,15 @@ MSG_REG_DISABLED = """
     </p>
     """
 
+MSG_REALM_NOTFOUND = """
+    <h2>No realm found on server</h2>
+    <p>
+        Site's owner has no realms in the database. Hit him up to create one.
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
 ###
 ### EOF Strings
 ###
