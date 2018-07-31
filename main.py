@@ -176,7 +176,7 @@ def main():
             (r"/profile", ProfileHandler),
             (r"/news", NewsHandler),
             (r"/shutdown", ShutdownHandler),
-            (r"/serverstatus",ServerStatusHandler)
+            (r"/serverstatus", ServerStatusHandler)
         ],
         **settings
     )
@@ -383,6 +383,36 @@ class ServerStatusHandler(IndexHandler):
                 data['status'] = "Offline"
 
         self.render("server_status.html", CONFIG=self.CONFIG, DATA=self.DATA, SERVER_STATUS=data)
+
+
+class ServerStatusHandler(IndexHandler):
+    def get(self):
+        """Get all relevant data about server status from the database"""
+
+        query = "SELECT `name`, `address` FROM `realmlist` LIMIT 1"
+        result = self.reach_db("realmd", query, "fetchone")
+
+        data = self.DATA['serverstatus'] = {}
+
+        if (result):
+            data['name'] = result['name']
+            data['address'] = result['address']
+        else:
+            self.send_message(MSG_REALM_NOTFOUND)
+            # Gotta return, or else the rest will still run in background ^_~
+            return
+
+        query = "SELECT count(*) as 'amount' from `characters` where `online` = '1'"
+        result = self.reach_db("chars", query, "fetchone")
+
+        if (result):
+            data['population'] = result['amount']
+            if (result['amount'] > 0):
+                data['status'] = "Online"
+            else:
+                data['status'] = "Offline"
+
+        self.render("server_status.html", CONFIG=self.CONFIG, DATA=self.DATA)
 
 
 class LoginHandler(IndexHandler):
