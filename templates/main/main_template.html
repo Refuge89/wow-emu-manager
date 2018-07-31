@@ -16,35 +16,38 @@ better than what it was before; thus by my decree - it will happen! -->
     <body>
         <!-- It's all flex now, are you happy? -->
         <div id="header">
-            <div id="linkbox-top">
-                <a href="/">Frontpage</a>
-            </div>
-            <div id="profilebox">
-                <span id="pbox_left"></span>
-                <span id="pbox_mid">
-                        {% if ( DATA['USERNAME'] ) %}
-                        <div id="pbox_fields_off">
-                        User: {{ DATA['USERNAME'] }}
-                        </div>
-                        <span id="pbox_controls">
-                            <a href="/profile"><img src="/static/images/button-profile.gif"/></a>
-                            <a href="/logout"><img src="/static/images/button-logout.gif"/></a>
-                        </span>
-                        {% else %}
-                        <form action="/login" method="POST">
-                            <div id="pbox_fields_on">
-                                Login: <input name="l" size="14" maxlength="16" type="text"/>
-                                Password: <input name="p" size="14" maxlength="16" type="password"/>
+            <div id="header-inner-fix">
+                <div id="linkbox-top">
+                    <a href="/">Frontpage</a>
+                    <a href="/serverstatus">Server Status</a>
+                </div>
+                <div id="profilebox">
+                    <span id="pbox_left"></span>
+                    <span id="pbox_mid">
+                            {% if ( DATA['USERNAME'] ) %}
+                            <div id="pbox_fields_off">
+                            User: {{ DATA['USERNAME'] }}
                             </div>
-                            {% module xsrf_form_html() %}
                             <span id="pbox_controls">
-                                <a href="/register">Create Account</a>
-                                <input type="image" src="/static/images/button-login.gif" value="login"/>
+                                <a href="/profile"><img src="/static/images/button-profile.gif"/></a>
+                                <a href="/logout"><img src="/static/images/button-logout.gif"/></a>
                             </span>
-                        </form>
-                        {% end %}
-                </span>
-                <span id="pbox_right"></span>
+                            {% else %}
+                            <form action="/login" method="POST">
+                                <div id="pbox_fields_on">
+                                    Login: <input name="l" size="14" maxlength="16" type="text"/>
+                                    Password: <input name="p" size="14" maxlength="16" type="password"/>
+                                </div>
+                                {% module xsrf_form_html() %}
+                                <span id="pbox_controls">
+                                    <a href="/register">Create Account</a>
+                                    <input type="image" src="/static/images/button-login.gif" value="login"/>
+                                </span>
+                            </form>
+                            {% end %}
+                    </span>
+                    <span id="pbox_right"></span>
+                </div>
             </div>
         </div>
         <div id="main-container">

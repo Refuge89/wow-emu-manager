@@ -50,6 +50,13 @@ body {
     height: 88px;
 }
 
+#header-inner-fix {
+    display: flex;
+    flex-flow: row nowrap;
+
+    width: 700px;
+}
+
 #linkbox-top {
     font-weight: bold;
 
@@ -59,13 +66,15 @@ body {
 
 #linkbox-top a {
     color: inherit;
+
+    margin-left: 5px;
 }
 
 /* Login box */
 
 #profilebox {
     margin-top: 32px;
-    margin-left: 185px;
+    margin-left: 95px;
 
     width: 430px;
 
