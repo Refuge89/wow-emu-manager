@@ -1,0 +1,21 @@
+{% extends "main_template.html" %}
+
+{% block title %}
+Server Status
+{% end %}
+
+{% block content %}
+    <div id="message">
+        <h2>
+            Server Status
+        </h2>
+        <p>
+            Here you can check upon the status of the server realm!
+        </p>
+        {% set SERVER_STATUS = DATA['serverstatus'] %}
+        <p>Address: {{ SERVER_STATUS['address'] }}</p>
+        <p>Name: {{ SERVER_STATUS['name'] }}</p>
+        <p>Server is: {{ SERVER_STATUS['status'] }}</p>
+        <p>Server Population: {{ SERVER_STATUS['population'] }}</p>
+    </div>
+{% end %}

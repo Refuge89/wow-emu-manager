@@ -6,11 +6,13 @@
 # they are being sent in RAW mode, so you can and SHOULD use proper HTML here.
 
 MSG_BAD_CREDS = """
-    <h2>"The Bigger is not The Better", "Size Matters" or</h2>
-    <h2>"Haven't I Warned you?"</h2>
-    <p style="padding-top: 15px">
-        A few things can trigger this message, actually:
-        <ul class="msg-just">
+    <h2>"The Bigger is not The Better", "Size Matters" or
+        </br>
+        "Haven't I Warned you?"
+    </h2>
+    <h5>
+        <h3>A few things can trigger this message, actually:</h3>
+        <ul class="just">
             <li>You're using something else than ASCII alphanumeric characters for your username or password.</li>
             <li>Login and / or Password fields are empty.</li>
             <li>Login and / or Password are just too darn long.</li>
@@ -87,6 +89,16 @@ MSG_REG_DISABLED = """
     <h2>Registration Disabled</h2>
     <p>
         Site's owner has disallowed new registrations.
+    </p>
+    <p>
+        <a href="/">[Return to Main Page]</a>
+    </p>
+    """
+
+MSG_REALM_NOTFOUND = """
+    <h2>No realm found on server</h2>
+    <p>
+        Site's owner has no realms in the database. Hit him up to create one.
     </p>
     <p>
         <a href="/">[Return to Main Page]</a>
