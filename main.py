@@ -1,77 +1,81 @@
 #!/usr/bin/python
 
-# This file: Site engine
+"""This file: Site engine."""
 
-# This thing requires python 3 and following python packages:
-# - tornado ( https://pypi.org/project/tornado/ )
-# - mysql-connector-python ( https://pypi.org/project/mysql-connector-python/ )
+# Standard Python 3 libs
+import ssl
+import json
+import hashlib
+import secrets
+import sqlite3
 
-# The entirety of Tornado
+from contextlib import contextmanager
+
+# Tornado
 import tornado.ioloop
 import tornado.options
 import tornado.web
 import tornado.escape
 import tornado.httpserver
+import tornado.httpclient
 
-# The HTTPS support. The Placebo Green Lock In Browser.
-import ssl
-
-# Different data hauling between entities, like configs or long polling
-import json
-
-# This is for all password hashing glory
-import hashlib
-
-# Grab SQLite driver
-import sqlite3
-
-# This is used
-from contextlib import contextmanager
-
-# Prepare MySQL driver
+# MySQL-Connector-Python
 import mysql.connector as mariadb
 
-# Grab all our strings!
-from tempest_strings import *
+# Our strings, reloadable
+from wem_strings import MSG_SYS, MSG_FRONT
 
 
-###
-### Core Machinery: The Core Stuff like preparing the server environment,
-###                 getting the DB connections and loading configs.
-###
+##################
+# Core Machinery #
+##################
 
 
-def safe_exit(msg):
-    """This is supposed to be safer than just exit()"""
+def safe_exit(msg, turn_off_tornado=True):
+    """Stop Tornado's IOLoop gracefully (if required) and then exit.
 
-    this_loop = tornado.ioloop.IOLoop.current()
-    # Wait for IOLoop to figure itself out.
-    this_loop.stop()
-    # Free resources.
-    this_loop.close()
-    # Finally, quit with a message.
-    exit(msg)
+    If you don't need to turn tornado off (maybe you haven't started it yet?),
+    supply False to the second argument. It's optional and you are free to omit
+    it -- in that case safe_exit() will try to stop tornado first, by default.
+    """
+    print("\n\n#=# " + msg + " #=#\n\n")
+
+    if (turn_off_tornado):
+        this_loop = tornado.ioloop.IOLoop.current()
+
+        this_loop.stop()
+        this_loop.close()
+    else:
+        exit()
 
 
 def get_config():
-    """Load config.json from site's folder, create one if it doesn't exist,
-       decode and return a dictionary with all the config values.
-    """
+    """Grab config file and return it as python object.
 
-    # If config.json exists -- open it for read access and decode JSON.
+    Load config.json from current folder,
+    create config if it doesn't exist, decode and return as dictionary.
+    """
+    # FIXME: Does this qualify as a hack?
+    # For me it's an elegant way to avoid additional import.
     try:
-        with open("config.json", mode="r", encoding="utf8") as config_json:
-            CONFIG = json.loads( config_json.read() )
+        # If config.json exists -- open it for read access
+        with open("config.json", mode="r", encoding="utf8") as config_file:
+            # Decode JSON into Python ojbects
+            local_CONFIG = json.loads( config_file.read() )
 
     # If we cannot open file for one reason or another:
     except OSError:
-        # Open for write
-        with open("config.json", mode="w", encoding="utf8") as config_json:
-            CONFIG = {
+        # Write a new file
+        with open("config.json", mode="w", encoding="utf8") as config_file:
+            # Prepare the default config
+            local_CONFIG = {
                 "SITENAME": "main",
-                "PAGE_TITLE": "Tempest CMS | ",
-                "SECRET": "CHANGEME",
-                "SSL": False,
+                "DEVELOPER": False,
+                "PAGE_TITLE": "WoW-Emu-Manager",
+                "SECRET": secrets.token_hex(128),
+                "SITE_PORT": "8000",
+                "HTTPS": False,
+                "HTTPS_PORT": "443",
                 "DB_USER": "",
                 "DB_PASS": "",
                 "DB_ADDR": "127.0.0.1",
@@ -79,453 +83,505 @@ def get_config():
                 "DB_NAME_CHARS": "",
                 "DB_NAME_CORE": "",
                 "DB_NAME_REALMD": "",
-                "SITE_PORT": "8000",
                 "REG_DISABLED": False,
                 "LOGIN_DISABLED": False,
-                "DEFAULT_ADDON": 1
-            }
+                "DEFAULT_ADDON": 0 }
+
             # Encode Python objects into JSON string
-            config_json.write( json.dumps(CONFIG, indent=4) )
+            config_file.write( json.dumps(local_CONFIG, indent=4) )
 
     except json.decoder.JSONDecodeError:
-        # We can use "unsafe" quit here, because the loop hasn't even started yet.
-        exit("### Your config file is corrupted. Cannot continue. ###")
+        safe_exit( MSG_SYS['config_err'], False )
+
+    config_error = False
 
     # Check if config needs to be adjusted
-    if ( CONFIG['SECRET'] == "CHANGEME" or len(CONFIG['SECRET'] ) < 30 or
-        not CONFIG['DB_USER'] or
-        not CONFIG['DB_PASS'] or
-        not CONFIG['DB_NAME_CHARS'] or
-        not CONFIG['DB_NAME_CORE'] or
-        not CONFIG['DB_NAME_REALMD'] ):
+    if ( not local_CONFIG['SECRET'] ):
+        config_error = True
+    if ( not local_CONFIG['DB_USER'] ):
+        config_error = True
+    if ( not local_CONFIG['DB_PASS'] ):
+        config_error = True
+    if ( not local_CONFIG['DB_NAME_CHARS'] ):
+        config_error = True
+    if ( not local_CONFIG['DB_NAME_CORE'] ):
+        config_error = True
+    if ( not local_CONFIG['DB_NAME_REALMD'] ):
+        config_error = True
 
-        exit("### You need to adjust default settings in config.json before running this. ###")
+    if (config_error):
+        safe_exit( MSG_SYS['config_new'], False )
 
-    return CONFIG
+    return local_CONFIG
 
 
-@contextmanager  # This part helps to close connections no matter what, "with"-style.
+@contextmanager
 def call_db():
-    """This one grabs DB connections, attempts to yield a dictionary with mapped connection objects."""
+    """Grab DB connections, yield a dictionary with mapped connection objects.
 
+    Because of @contextmanager, we can use `with` and properly close handles.
+    """
     # It is assumed that you use one user to access all three DB
-    temp_config = {
+    tmp_cfg = {
         'host': CONFIG['DB_ADDR'],
         'port': CONFIG['DB_PORT'],
         'user': CONFIG['DB_USER'],
         'password': CONFIG['DB_PASS'] }
 
-    connections = { 'chars': mariadb.connect(database=CONFIG['DB_NAME_CHARS'], **temp_config),
-                    'core': mariadb.connect(database=CONFIG['DB_NAME_CORE'], **temp_config),
-                    'realmd': mariadb.connect(database=CONFIG['DB_NAME_REALMD'], **temp_config),
-                    'internal': sqlite3.connect('internal.db') }
+    conns = { 'internal': sqlite3.connect('internal.db'),
+              'chars': mariadb.connect(database=CONFIG['DB_NAME_CHARS'], **tmp_cfg),
+              'core': mariadb.connect(database=CONFIG['DB_NAME_CORE'], **tmp_cfg),
+              'realmd': mariadb.connect(database=CONFIG['DB_NAME_REALMD'], **tmp_cfg) }
 
     try:
-        yield connections
+        yield conns
 
     except mariadb.Error as error:
         print(error)
 
     finally:
-        connections['chars'].close()
-        connections['core'].close()
-        connections['realmd'].close()
-        connections['internal'].close()
+        conns['chars'].close()
+        conns['core'].close()
+        conns['realmd'].close()
+        conns['internal'].close()
 
 
-# FIXME: This is not da wae.
 def init_internal_db():
-    """This is a hacky thing to prepare internal DB if we think it's corrupted.
-       YES. BY WIPING IT. IF YOU HAVEN'T READ ABOVE IT'S A _HACKY_ WAY.
-    """
-
+    """Initialize internal sqlite DB structure."""
+    # We are working with internal DB
     db_cur = conn_bundle['internal'].cursor()
 
+    # If there's no table named "news" we create one
     try:
         db_cur.execute("SELECT * FROM `news` LIMIT 1")
 
     except sqlite3.OperationalError:
-        query = "CREATE TABLE `news` ( `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE, `text` TEXT, `header` TEXT, `timestamp` TEXT )"
+        query = """CREATE TABLE `news` (
+            `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+            `text` TEXT,
+            `header` TEXT,
+            `timestamp` TEXT )"""
+
         db_cur.execute(query)
 
 
-def main():
-    """Grab the command line args, prepare environment and run the engine"""
+def reach_db(db_name, query, mode):
+    """Execute a query against connected DB and return the result.
 
+    Arguments:
+        db_conn     Connection object to attach cursor to.
+                    Possible values are:
+                    "chars", "core", "realmd", "internal"
+
+        query       Query string to run against the DB.
+
+        mode        "fetchall" or "fetchone" respectively.
+    """
+    # If an error occurs -- return object None
+    results = None
+
+    try:
+        db_conn = conn_bundle[db_name]
+
+        # Enter the DB in question using either of the cursors for respective
+        # DB drivers: SQLite3 or MySQL-Connector-Python
+        if (db_name == "internal"):
+            db_conn.row_factory = sqlite3.Row
+            db_cur = db_conn.cursor()
+        else:
+            db_cur = db_conn.cursor(dictionary=True)
+
+        db_cur.execute(query)
+        # Walk over results
+        if (mode == "fetchone"):
+            results = db_cur.fetchone()
+        elif (mode == "fetchall"):
+            results = db_cur.fetchall()
+        else:
+            results = None
+
+    except mariadb.Error:
+        safe_exit( MSG_SYS['mysql_err'] )
+
+    except sqlite3.OperationalError as err:
+        print(err)
+
+    return results
+
+
+def get_news(amount):
+    """Return dictionary with certain amount of news entries in it."""
+    query = "SELECT `text`, `header`, `timestamp` \
+             FROM `news` ORDER BY `id` DESC LIMIT '{}'".format(amount)
+
+    return reach_db("internal", query, "fetchall")
+
+
+def main():
+    """Grab command line arguments, prepare environment and run the engine."""
     tornado.options.parse_command_line()
 
-    modules = { 'FormatNews': FormatNews }
+    # Dictionary of all modules used
+    modules = {'FormatNews': FormatNews }
 
+    # Tornado webserver settings
     settings = { 'template_path': "templates/" + CONFIG['SITENAME'],
                  'static_path': "static/" + CONFIG['SITENAME'],
                  'cookie_secret': CONFIG['SECRET'],
                  'xsrf_cookies': True,
                  'autoreload': False,
-                 'ui_modules': modules }
+                 'ui_modules': modules,
+                 'default_handler_class': DefaultHandler,
+                 'compiled_template_cache': True }
 
-    # Dictionary of all modules used
-    modules = {'FormatNews': FormatNews}
+    # Makes your life easier.
+    if ( CONFIG['DEVELOPER'] ):
+        # No need to restart the core each time you update templates.
+        settings['compiled_template_cache'] = False
+        settings['autoreload'] = True
 
     # Make an instance of web app and connect
     # some handlers to respective URL path regexps
-    site = tornado.web.Application( handlers=[
-            (r"/", IndexHandler),
-            (r"/login", LoginHandler),
-            (r"/logout", LogoutHandler),
-            (r"/register", RegistrationHandler),
-            (r"/profile", ProfileHandler),
-            (r"/news", NewsHandler),
-            (r"/shutdown", ShutdownHandler),
-            (r"/serverstatus", ServerStatusHandler)
-        ],
-        **settings
-    )
+    h = [
+        (r"/", IndexHandler),
+        (r"/login", LoginHandler),
+        (r"/logout", LogoutHandler),
+        (r"/register", RegistrationHandler),
+        (r"/profile", ProfileHandler),
+        (r"/news", NewsHandler),
+        (r"/shutdown", ShutdownHandler),
+        (r"/status", ServerStatusHandler) ]
 
-    https_server = None
+    site = tornado.web.Application(handlers=h, **settings)
 
-    # FIXME: Ugly. Need to document it. Shit is done in a hurry :c
-    if ( CONFIG['SSL'] ):
+    if ( CONFIG['HTTPS'] ):
         # Prepare SSL
         ssl_context = ssl.SSLContext()
 
+        # Attempt to load SSL certificate and key
         try:
             ssl_context.load_cert_chain("certs/fullchain.pem", "certs/privkey.pem")
 
-            https_server = tornado.httpserver.HTTPServer(site, ssl_options=ssl_context)
-            https_server.listen( CONFIG['SITE_PORT'] )
+        except ssl.SSLError:
+            safe_exit( MSG_SYS['ssl_ctx_err'] )
+            return
 
-        except:
-            safe_exit("### Can't grab SSL context: check your certificate / key. ###")
+        except FileNotFoundError:
+            safe_exit( MSG_SYS['ssl_cert_err'] )
+            return
+
+        https_server = tornado.httpserver.HTTPServer(site, ssl_options=ssl_context)
+        https_server.listen( CONFIG['HTTPS_PORT'] )
+
     else:
-        http_server = tornado.httpserver.HTTPServer(site)
-        http_server.listen( CONFIG['SITE_PORT'] )
+        https_server = None
 
     # Spawn HTTP -> HTTPS redirect handler
     if (https_server):
-        redirector = tornado.web.Application( handlers=[ (r"/.*", SSLRedirectHandler) ] )
-        http_server = tornado.httpserver.HTTPServer(redirector)
-        http_server.listen(80)
+        site = tornado.web.Application( handlers=[ (r"/.*", HTTPSRedirectHandler) ] )
 
-    # Main event and I/O loop
+    http_server = tornado.httpserver.HTTPServer(site)
+    http_server.listen( CONFIG['SITE_PORT'] )
+
+    # Main event and I/O loop. Any code AFTER this should use safe_exit()
     tornado.ioloop.IOLoop.instance().start()
 
 
-###
-### EOF Core Machinery
-###
+######################
+# EOF Core Machinery #
+######################
 
 
-###
-### Handlers: These handle page requests.
-###
+#########################################
+# Handlers: These handle page requests. #
+#########################################
 
 
 class IndexHandler(tornado.web.RequestHandler):
-    """Root page handler, it's what other handlers in here will inherit from"""
+    """Root page handler, it's what other handlers in here will inherit from."""
 
-    ###
-    ### Below are "helper" methods that doesn't directly render anything.
-    ###
+    #####################################################################
+    # Below are "helper" methods that doesn't directly render anything. #
+    #####################################################################
 
-    def prepare(self):
-        """This is executed before _every_ HTTP method"""
-
+    def initialize(self):
+        """Allow you to __init__ everything you need for your subclass."""
         self.DATA = {}
-        self.CONFIG = CONFIG
+        self.DATA['PAGE_TITLE'] = CONFIG['PAGE_TITLE']
 
-        # Check the user-cookie for active login!
-        if (self.current_user):  # FIXME: But is this even needed?
-            self.DATA['USERNAME'] = tornado.escape.xhtml_escape(self.current_user)
+        # Check the user-cookie for active login and reject it in case
+        # there are any special characters in it.
+        if (self.current_user):
+            if ( self.current_user.isalnum() ):
+                self.DATA['USERNAME'] = tornado.escape.xhtml_escape(self.current_user)
         else:
             self.DATA['USERNAME'] = None
 
-
     def get_current_user(self):
-        """This is a cookie-related built-in method"""
-
+        """Get username from secure cookie."""
         return self.get_secure_cookie("username")
 
-
-    def reach_db(self, db_name, query, mode):
-        """Executes a query against connected DB and returns the result
-        Arguments:
-            db_conn     Connection object to attach cursor to.
-                        Possible values are:
-                        "chars", "core", "realmd", "internal"
-
-            query       Query string to run against the DB.
-
-            mode        "fetchall" or "fetchone" respectively.
-        """
-
-        # If an error occurs -- return object None
-        results = None
-
-        try:
-            db_conn = conn_bundle[db_name]
-
-            # Enter the DB in question using either of the cursors for respective
-            # DB drivers: SQLite3 or MySQL-Connector-Python
-            if (db_name == "internal"):
-                db_conn.row_factory = sqlite3.Row
-                db_cur = db_conn.cursor()
-            else:
-                db_cur = db_conn.cursor(dictionary=True)
-
-            db_cur.execute(query)
-            # Walk over results
-            if (mode == "fetchone"):
-                results = db_cur.fetchone()
-            elif (mode == "fetchall"):
-                results = db_cur.fetchall()
-            else:
-                results = None
-
-        except mariadb.Error:
-            safe_exit("### I don't know what you're trying to connect to, shutting down :D ###")
-
-        except sqlite3.OperationalError or mysql.error.OperationalError as err:
-            print("### Query error. ###")
-            print(err)
-
-        return results
-
-
     def get_credientals(self):
-        """Simply grabs field data from forms,
-           if it won't like any of the fields user will see an error message
-           via send_message() and the function will return None, so handle it.
-        """
+        """Grabs field data from forms.
 
+        If it won't like any of the fields user will see an error message
+        via send_message() and the function will return None, so handle it.
+        """
         login_field = self.get_argument("l").upper()
         psswd_field = self.get_argument("p").upper()
 
-        bad_creds = False
+        login_err = False
 
-        # If username is fucky...
+        # If username contains special characters...
         if ( not login_field.isalnum() ):
-            bad_creds = True
+            login_err = True
 
         # If username or password are empty...
         if (not login_field or not psswd_field):
-            bad_creds = True
+            login_err = True
 
         # If password is longer than...
         if (len(psswd_field) > 16):
-            bad_creds = True
+            login_err = True
 
         # If username is longer than...
         if (len(login_field) > 16):
-            bad_creds = True
+            login_err = True
 
         # If we don't like the credientals:
-        if (bad_creds):
-            self.send_message(MSG_BAD_CREDS)
+        if (login_err):
             return None
 
-        # Calculate password hashes! SHA1 of user:pass
+        # Calculate SHA1 of user:pass
         psswd_dough = login_field + ":" + psswd_field
         psswd_hash = hashlib.sha1( bytes(psswd_dough, "utf-8") ).hexdigest().upper()
 
         return { 'login': login_field, 'hash': psswd_hash, 'pass': psswd_field }
 
+    def check_perm(self):
+        """Return level of permissions for an account."""
+        # We've already checked this for XSS. (In fact we do it _every_ time you get the page)
+        # ...so now we are limiting SQLinj. This makes sense here, because account
+        # creation rules are exactly similar, anyway.
 
-    def get_news(self, amount):
-        """Returns dictionary with certain amount of news entries in it"""
+        query = "SELECT `gmlevel` FROM `account` \
+                 WHERE `username` = '{}'".format( self.DATA['USERNAME'] )
 
-        query = "SELECT `text`, `header`, `timestamp` FROM `news` ORDER BY `id` DESC LIMIT {}".format(amount)
-        entries = self.reach_db("internal", query, "fetchall")
+        return reach_db("realmd", query, "fetchone")
 
-        return entries
-
-
-    ###
-    ### Below are things that directly render stuff
-    ###
-
+    ###############################################
+    # Below are things that directly render stuff #
+    ###############################################
 
     def send_message(self, MESSAGE):
-        """This one sends a message to the user wrapped in a nice template."""
-
-        self.render("message.html", CONFIG=self.CONFIG, DATA=self.DATA, MESSAGE=MESSAGE)
-
+        """Send a message wrapped in a nice template to the user."""
+        self.render("message.html", DATA=self.DATA, MESSAGE=MESSAGE)
 
     def get(self):
-        """Process GET request from clients"""
+        """Process GET request from clients."""
+        self.DATA['news'] = get_news(3)
+        self.render("index.html", DATA=self.DATA)
 
-        self.DATA['news'] = self.get_news(3)
-        self.render("index.html", CONFIG=self.CONFIG, DATA=self.DATA)
+
+class DefaultHandler(IndexHandler):
+    """Handle all other requests (the ones that don't have a unique handler)."""
+
+    def get(self):
+        self.send_message( MSG_FRONT['404'] )
 
 
 class ServerStatusHandler(IndexHandler):
-    def get(self):
-        """Get all relevant data about server status from the database"""
 
-        query = "SELECT `name`, `address` FROM `realmlist` LIMIT 1"
-        result = self.reach_db("realmd", query, "fetchone")
+    def get(self):
+        # Get all relevant data about server status from the database
+        query = "SELECT `name`, `address`, `realmflags` FROM `realmlist` LIMIT 1"
+        result = reach_db("realmd", query, "fetchone")
 
         data = self.DATA['serverstatus'] = {}
 
         if (result):
             data['name'] = result['name']
             data['address'] = result['address']
-        else:
-            self.send_message(MSG_REALM_NOTFOUND)
-            # Gotta return, or else the rest will still run in background ^_~
-            return
-
-        # TODO: Don't forget that this is grabbing only the FIRST realm.
-        query = "SELECT COUNT(*) as 'amount' from `account` where `active_realm_id` = '1'"
-        result = self.reach_db("realmd", query, "fetchone")
-
-        if (result):
-            data['population'] = result['amount']
-            if (result['amount'] > 0):
+            if ( result['realmflags'] != 2 ):
                 data['status'] = "Online"
             else:
                 data['status'] = "Offline"
 
-        self.render("server_status.html", CONFIG=self.CONFIG, DATA=self.DATA)
+        else:
+            self.send_message( MSG_FRONT['404'] )
+            return
+
+        # TODO: Don't forget that this is grabbing only the FIRST realm.
+        query = "SELECT COUNT(*) as 'amount' from `account` where `active_realm_id` = '1'"
+        result = reach_db("realmd", query, "fetchone")
+
+        if (result):
+            data['population'] = result['amount']
+
+        self.render("server_status.html", DATA=self.DATA)
 
 
 class LoginHandler(IndexHandler):
-    def post(self):
 
-        if (self.CONFIG['LOGIN_DISABLED']):
-            self.send_message(MSG_LOGIN_DISABLED)
+    def post(self):
+        if ( CONFIG['LOGIN_DISABLED'] ):
+            self.send_message( MSG_FRONT['login_err'] )
             return
 
-        if (self.DATA['USERNAME']):
+        if ( self.DATA['USERNAME'] ):
             self.redirect("/")
             return
 
         logindata = self.get_credientals()
 
-        # If get_credientals() didn't like something, just drop the request.
-        # It will do the messaging on it's own.
         if (not logindata):
+            self.send_message( MSG_FRONT['login_err'] )
             return
 
-        query = "SELECT `username` FROM `account` WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}'".format(logindata['login'], logindata['hash'])
-        result = self.reach_db("realmd", query, "fetchone")
+        query = "SELECT `username` FROM `account` \
+                 WHERE `username` = '{0}' AND `sha_pass_hash` = '{1}' \
+                 ".format(logindata['login'], logindata['hash'])
+
+        result = reach_db("realmd", query, "fetchone")
 
         # Idea is that our query will be empty if it won't find an account+hash
         # pair, while Tornado handles all escaping
         if (result):
             self.set_secure_cookie("username", logindata['login'])
         else:
-            self.send_message(MSG_BAD_CREDS)
+            self.send_message( MSG_FRONT['login_err'] )
             return
 
         self.redirect("/")
 
 
 class LogoutHandler(IndexHandler):
-    def get(self):
 
-        if(self.DATA['USERNAME']):
+    def get(self):
+        if( self.DATA['USERNAME'] ):
             self.clear_cookie("username")
 
         self.redirect("/")
 
 
 class RegistrationHandler(IndexHandler):
+
     def get(self):
-
-        if (self.DATA['USERNAME']):
+        if ( self.DATA['USERNAME'] ):
             self.redirect("/")
+        elif ( CONFIG['REG_DISABLED'] ):
+            self.send_message( MSG_FRONT['reg_dis'] )
         else:
-            self.render("register.html", CONFIG=self.CONFIG, DATA=self.DATA)
-
+            self.render("register.html", DATA=self.DATA)
 
     def post(self):
-
-        if (self.CONFIG['REG_DISABLED']):
-            self.send_message(MSG_REG_DISABLED)
+        if ( CONFIG['REG_DISABLED'] ):
+            self.send_message( MSG_FRONT['reg_dis'] )
             return
 
-        if (not self.DATA['USERNAME'] and self.get_argument("just_registered") == "yes"):
+        if (not self.DATA['USERNAME'] and self.get_argument("_xsrf") ):
+            # Check the form for forgeries
+            try:
+                self.check_xsrf_cookie()
+            except tornado.httpclient.HTTPError:
+                self.redirect("/register")
+                return
+
             regdata = self.get_credientals()
 
             # Same as with LoginHandler
             if (not regdata):
+                self.send_message( MSG_FRONT['reg_err'] )
                 return
 
             # Check if account exists
-            query = "SELECT `username` FROM `account` WHERE `username` = '{}'".format(regdata['login'])
-            result = self.reach_db("realmd", query, "fetchone")
+            query = "SELECT `username` FROM `account` \
+                     WHERE `username` = '{}'".format(regdata['login'])
+
+            result = reach_db("realmd", query, "fetchone")
 
             if (result):
-                self.send_message(MSG_ACC_EXISTS)
+                self.send_message( MSG_FRONT['reg_err'] )
                 return
 
             # Register new account
             query = "INSERT INTO `account` (`username`, `sha_pass_hash`, `expansion`) \
-                     VALUES ('{0}', '{1}', '{2}')".format( regdata['login'], regdata['hash'], self.CONFIG['DEFAULT_ADDON'] )
-            self.reach_db("realmd", query, "fetchone")
-            self.send_message(MSG_ACC_CREATED)
+                     VALUES ('{0}', '{1}', '{2}') \
+            ".format( regdata['login'], regdata['hash'], CONFIG['DEFAULT_ADDON'] )
 
-        else:
-            redirect("/")
+            reach_db("realmd", query, "fetchone")
 
+            self.send_message( MSG_FRONT['reg_ok'] )
 
-class ProfileHandler(IndexHandler):
-    def get(self):
-
-        if ( self.DATA['USERNAME'] ):
-            self.send_message(MSG_SWAG_404)
-
-
-class NewsHandler(IndexHandler):
-    """We fetch 15 news entries and render them for user."""
-
-    def get(self):
-
-        self.DATA['news'] = self.get_news(15)
-        self.render("news.html", CONFIG=self.CONFIG, DATA=self.DATA)
-
-
-class ShutdownHandler(IndexHandler):
-    def get(self):
-
-        if ( self.DATA['USERNAME'] and self.request.remote_ip == "127.0.0.1" ):
-            # If request comes from external IP
-            if ( 'X-Real-Ip' in self.request.headers or 'X-Forwarded-For' in self.request.headers ):
-                print("### Shutdown attempt detected from external IP:Port, ignoring... ###")
-                self.redirect("/")
-            else:
-                safe_exit("### Shutting down the server... ###")
         else:
             self.redirect("/")
 
 
-class SSLRedirectHandler(tornado.web.RequestHandler):
+class ProfileHandler(IndexHandler):
+
     def get(self):
-        if ( CONFIG['SITE_PORT'] != "443" ):
-            self.redirect('https://' + self.request.host + ":" + CONFIG['SITE_PORT'], permanent=False)
+        if ( self.DATA['USERNAME'] ):
+            self.send_message( MSG_FRONT['404'] )
         else:
-            self.redirect('https://' + self.request.host, permanent=False)
+            self.redirect("/")
 
 
-###
-### EOF Handlers
-###
+class NewsHandler(IndexHandler):
+    """Fetch news entries and render them for user."""
+
+    def get(self):
+        self.DATA['news'] = get_news(15)
+
+        self.render("news.html", DATA=self.DATA)
 
 
-###
-### Modules: Embeddable widgets of stuff with flexible functionality.
-###
+class ShutdownHandler(IndexHandler):
+    """Handle shutdown command from web interface."""
+
+    def get(self):
+        if ( self.check_perm()['gmlevel'] == 3 ):
+            self.redirect("https://ddg.gg/")
+            safe_exit( MSG_SYS['exit_msg'] )
+        else:
+            self.redirect("/")
+
+
+class HTTPSRedirectHandler(tornado.web.RequestHandler):
+    """Handle HTTP -> HTTPS redirects."""
+
+    def get(self):
+        # FIXME: Can this part be abused?
+        request = self.request.host
+        if (':' in request):
+            # Take the IP part only
+            request = request.rsplit(":", 1)[0]
+
+        if ( CONFIG['HTTPS_PORT'] != "443" ):
+            request += ":" + CONFIG['HTTPS_PORT']
+
+        self.redirect('https://' + request, permanent=False)
+
+
+################
+# EOF Handlers #
+################
+
+
+#####################################################################
+# Modules: Embeddable widgets of stuff with flexible functionality. #
+#####################################################################
 
 
 class FormatNews(tornado.web.UIModule):
-    def render(self, entries):
+    """Render news entry in a unified way."""
 
+    def render(self, entries):
         return self.render_string("module-news.html", entries=entries)
 
 
-###
-### EOF Modules
-###
+###############
+# EOF Modules #
+###############
 
 
 # Make sure we aren't being used as someone's module!

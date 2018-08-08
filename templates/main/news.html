@@ -5,7 +5,15 @@ News
 {% end %}
 
 {% block content %}
-
-{% module FormatNews(DATA['news']) %}
-
+<div id="message-container">
+    <div id="message-header">
+        <h1>News</h1>
+    </div>
+    <div id="message-body">
+        {% module FormatNews(DATA['news']) %}
+    </div>
+    <p>
+        <a href='/'>[Return to Main Page]</a>
+    </p>
+</div>
 {% end %}

@@ -5,17 +5,20 @@ Server Status
 {% end %}
 
 {% block content %}
-    <div id="message">
-        <h2>
-            Server Status
-        </h2>
+    <div id="message-container">
+        <div id="message-header">
+            <h1>Server Status</h1>
+        </div>
+        <div id="message-body" class="just">
+            <ul>
+                <li>Address: {{ DATA['serverstatus']['address'] }}</li>
+                <li>Name: {{ DATA['serverstatus']['name'] }}</li>
+                <li>Server is: {{ DATA['serverstatus']['status'] }}</li>
+                <li>Server Population: {{ DATA['serverstatus']['population'] }}</li>
+            </ul>
+        </div>
         <p>
-            Here you can check upon the status of the server realm!
+            <a href='/'>[Return to Main Page]</a>
         </p>
-        {% set SERVER_STATUS = DATA['serverstatus'] %}
-        <p>Address: {{ SERVER_STATUS['address'] }}</p>
-        <p>Name: {{ SERVER_STATUS['name'] }}</p>
-        <p>Server is: {{ SERVER_STATUS['status'] }}</p>
-        <p>Server Population: {{ SERVER_STATUS['population'] }}</p>
     </div>
 {% end %}
