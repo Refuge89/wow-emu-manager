@@ -3,20 +3,18 @@
 
 ---
 
+<!-- **WARNING:** This repository contains work-in-progress, you've been warned. -->
+
 #### # Requirements:
 -   [Python 3][python]
 -   [Tornado][tornado]
 -   [MySQL-Connector-Python][connector]
 
 #### # About:
+
 Simple, nostalgic-looking layer between players, you and server's database written in Python 3 and Tornado.
 
 Documentation on usage or contribution can be found [here](../../wiki)
-
-This project is markdown- and python-linted with following checks excplicitly silenced:
-> **Python**: D203, D212, D213, D404, E201, E202, E501, C0326, C0325, D102, W0223, D101, C0111
-
-**WARNING:** This repository contains work-in-progress, you've been warned.
 
 #### # Features:
 -   Supports [CMaNGOS][cmangos]-TBC
@@ -30,6 +28,9 @@ This project is markdown- and python-linted with following checks excplicitly si
 -   Armory
 -   Item / Quest / NPC / Zone DB
 -   Realm map
+
+<!-- This project is markdown- and python-linted with following checks excplicitly silenced:
+> **Python**: D203, D212, D213, D404, E201, E202, E501, C0326, C0325, D102, W0223, D101, C0111 -->
 
 ---
 
