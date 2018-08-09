@@ -479,14 +479,7 @@ class RegistrationHandler(IndexHandler):
             self.send_message( MSG_FRONT['reg_dis'] )
             return
 
-        if (not self.DATA['USERNAME'] and self.get_argument("_xsrf") ):
-            # Check the form for forgeries
-            try:
-                self.check_xsrf_cookie()
-            except tornado.httpclient.HTTPError:
-                self.redirect("/register")
-                return
-
+        if ( not self.DATA['USERNAME'] ):
             regdata = self.get_credientals()
 
             # Same as with LoginHandler

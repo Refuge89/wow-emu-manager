@@ -12,8 +12,8 @@ Registration
         <div id="message-body" class="just">
             <ul>
                 <lh><p>Account creation guidelines:</p></lh>
-                <li>Username / password must not exceed 16 characters </li>
-                <li>Use characters from range: A-Z, 0-9 (special chars are forbidden)</li>
+                <li>Username / password must not exceed 16 characters (TBC client limitation)</li>
+                <li>Username may consist of alphanumeric characters and numbers only</li>
             </ul>
             </br>
             <center id="registration_form">
@@ -24,7 +24,7 @@ Registration
                     </p>
                     {% module xsrf_form_html() %}
                     <p>
-                        <input id="registration_submit" name="just_registered" type="submit" value=""/>
+                        <input id="registration_submit" type="submit" value=""/>
                     </p>
                 </form>
             </center>
