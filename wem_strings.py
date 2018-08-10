@@ -69,6 +69,24 @@ MSG_FRONT = {
         </div>
         """,
 
+    'armory_no_chars': """
+        <div id="message-header">
+            <h1>No characters found</h1>
+        </div>
+        <div id="message-body">
+            <h3>There are no characters to display yet. Login and create some!</h3>
+        </div>
+        """,
+
+    'armory_char_404': """
+        <div id="message-header">
+            <h1>Character not found</h1>
+        </div>
+        <div id="message-body">
+            <h3>This character does not exist.</h3>
+        </div>
+        """,
+
     '404': """
         <div id="message-header">
             <h1>404: Not Found</h1>

@@ -398,24 +398,24 @@ class ArmoryOverviewHandler(IndexHandler):
         # It wont be everything for now, just basic stuff to offer the user a selection of the characters
         # That way he can decide which character he wants to inspect further :3
         query = "SELECT guid, name FROM characters"
-        result = self.reach_db("chars", query, "fetchall")
+        result = reach_db("chars", query, "fetchall")
 
         if(result):
-            self.render("armory.html", CONFIG=self.CONFIG, DATA=self.DATA, CHARACTERS=result)
+            self.render("armory.html", DATA=self.DATA, CHARACTERS=result)
         else:
-            self.send_message(MSG_NO_CHARACTERS)
+            self.send_message( MSG_FRONT['armory_no_chars'] )
 
 
 class ArmoryCharacterDetailHandler(IndexHandler):
     def get(self, character_id):
         ## Get all relevant character data from the database
         query = "SELECT name, race, class, gender, level, online, chosentitle, health FROM characters where guid = {} LIMIT 1".format(character_id)
-        result = self.reach_db("chars", query, "fetchone")
+        result = reach_db("chars", query, "fetchone")
         
         if(result):
-            self.render("armory_character_detail.html", CONFIG=self.CONFIG, DATA=self.DATA, CHAR_DATA=result)
+            self.render("armory_character_detail.html", DATA=self.DATA, CHAR_DATA=result)
         else:
-            self.send_message(MSG_CHARACTER_NOT_FOUND)
+            self.send_message( MSG_FRONT['armory_char_404'] )
 
 class ServerStatusHandler(IndexHandler):
 
