@@ -367,7 +367,7 @@ class IndexHandler(tornado.web.RequestHandler):
         query = "SELECT `gmlevel` FROM `account` \
                  WHERE `username` = '{}'".format( self.DATA['USERNAME'] )
 
-        return reach_db("realmd", query, "fetchone")
+        return reach_db("realmd", query, "fetchone")['gmlevel']
 
     ###############################################
     # Below are things that directly render stuff #
@@ -532,11 +532,14 @@ class ShutdownHandler(IndexHandler):
     """Handle shutdown command from web interface."""
 
     def get(self):
-        if ( self.check_perm()['gmlevel'] == 3 ):
+        if ( not self.DATA['USERNAME'] ):
+            pass
+        elif ( self.check_perm() == 3 ):
             self.redirect("https://ddg.gg/")
             safe_exit( MSG_SYS['exit_msg'] )
-        else:
-            self.redirect("/")
+            return
+
+        self.redirect("/")
 
 
 class HTTPSRedirectHandler(tornado.web.RequestHandler):
