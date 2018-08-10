@@ -85,7 +85,7 @@ def get_config():
                 "DB_NAME_REALMD": "",
                 "REG_DISABLED": False,
                 "LOGIN_DISABLED": False,
-                "DEFAULT_ADDON": 0 }
+                "DEFAULT_ADDON": 1 }
 
             # Encode Python objects into JSON string
             config_file.write( json.dumps(local_CONFIG, indent=4) )
