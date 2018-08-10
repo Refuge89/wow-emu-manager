@@ -1,13 +1,14 @@
 {% extends "main_template.html" %}
 
 {% block title %}
-It Yells At You
+System Message
 {% end %}
 
 {% block content %}
-    <div id="message">
+    <div id="message-container">
+        {% raw MESSAGE %}
         <p>
-            {% raw MESSAGE %}
+            <a href='/'>[Return to Main Page]</a>
         </p>
     </div>
 {% end %}

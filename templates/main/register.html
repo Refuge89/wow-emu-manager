@@ -5,28 +5,32 @@ Registration
 {% end %}
 
 {% block content %}
-    <div id="message">
-        <h2>
-            Create New Account
-        </h2>
-        <p>
-            Here you can create your account with all it's gory glory.
+    <div id="message-container">
+        <div id="message-header">
+            <h1>Create New Account</h1>
+        </div>
+        <div id="message-body" class="just">
+            <ul>
+                <lh><p>Account creation guidelines:</p></lh>
+                <li>Username / password must not exceed 16 characters (TBC client limitation)</li>
+                <li>Username may consist of alphanumeric characters and numbers only</li>
+            </ul>
             </br>
-            Username / password must not exceed 16 characters.
-        </p>
+            <center id="registration_form">
+                <form action="/register" method="POST">
+                    <p>
+                        <input type="text" maxlength="16" name="l" placeholder="<Your Username>"/>
+                        <input type="password" maxlength="16" name="p" placeholder="<Your Password>"/>
+                    </p>
+                    {% module xsrf_form_html() %}
+                    <p>
+                        <input id="registration_submit" type="submit" value=""/>
+                    </p>
+                </form>
+            </center>
+        </div>
         <p>
-            Also, I won't let you create account that has anything other
-            </br>
-            than printable ASCII latin letters and numbers.
+            <a href='/'>[Return to Main Page]</a>
         </p>
-    </div>
-    <div id="registration_form">
-        <form action="/register" method="POST">
-            <p><input type="text" maxlength="16" name="l" value="Username"/></p>
-            <p><input type="password" maxlength="16" name="p" value="Password"/></p>
-            <input type="hidden" name="just_registered" value="yes"/>
-            <input id="registration_submit" type="submit" value=""/>
-            {% module xsrf_form_html() %}
-        </form>
     </div>
 {% end %}

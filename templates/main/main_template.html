@@ -1,26 +1,16 @@
 <!DOCTYPE html>
-<!-- I sincerely apologize for whatever lies ahead. But it, nontheless, will be
-better than what it was before; thus by my decree - it will happen! -->
 <html>
     <head>
-        <!-- If you're a chrome user - the black thingies happen around on chrome's whim,
-        seriously. You, guys, and your jpg-renderer are like that. Lookin' great in FF :D -->
         <meta charset="utf-8"/>
         <meta name="viewport" content="initial-scale = 1.0,maximum-scale = 1.0"/>
-        <title>{{ CONFIG['PAGE_TITLE'] }}{% block title %}{% end %}</title>
+        <title>{{ DATA['PAGE_TITLE'] }} | {% block title %}{% end %}</title>
         <link rel="stylesheet" href="{{ static_url('main.css') }}"/>
-        <!--<link rel="favicon" href="{{ static_url('images/favicon.ico') }}"/>-->
-        <link rel="license" href="https://github.com/Levitanious/GLWTPL/blob/master/LICENSE.md"/>
     </head>
-    <!-- "Tempest CMS", BECAUSE WE GOTTA BE BOLD WITH OUR NAMING. -->
     <body>
-        <!-- It's all flex now, are you happy? -->
         <div id="header">
             <div id="header-inner-fix">
                 <div id="linkbox-top">
                     <a href="/">Frontpage</a>
-                    <a href="/serverstatus">Server Status</a>
-                    <a href="/armory">Armory</a>
                 </div>
                 <div id="profilebox">
                     <span id="pbox_left"></span>
@@ -52,27 +42,22 @@ better than what it was before; thus by my decree - it will happen! -->
             </div>
         </div>
         <div id="main-container">
-            <div id="center-border-top">
-                <div id="center-border-top-left"></div>
-                <div id="center-border-top-mid"></div>
-                <div id="center-border-top-right"></div>
-            </div>
-            <div id="center">
-                <div id="left_pane">
+            <div id="left-pane">
+                <div id="linkbox-left">
+                    <a href="/armory">Armory</a>
+                    <a href="/status">Server Status</a>
+                    <a href="/news">News</a>
                 </div>
-                <div id="center-border-mid-left"></div>
+            </div>
+            <div class="border-vertical" id="border-vertical-left"></div>
+            <div id="middle-pane">
                 <div id="content">
                     {% block content %}
                     {% end %}
                 </div>
-                <div id="center-border-mid-right"></div>
-                <div id="right_pane">
-                </div>
             </div>
-            <div id="center-border-bot">
-                <div id="center-border-bot-left"></div>
-                <div id="center-border-bot-mid"></div>
-                <div id="center-border-bot-right"></div>
+            <div class="border-vertical" id="border-vertical-right"></div>
+            <div id="right-pane">
             </div>
         </div>
         <div id="footer">© All Images and Logos are Copyright 2010 Blizzard Entertainment</div>
