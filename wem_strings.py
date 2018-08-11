@@ -6,11 +6,12 @@ if __name__ == '__main__':
 # Things that the end-user should never see go below
 
 MSG_SYS = {
-    'config_err': 'Your config file is corrupted. Cannot continue.',
+    'config_new': 'You need to adjust default settings in config.json before running this file.',
+    'config_err': 'Your config file is corrupted or doesn\'t exist. Cannot continue.',
+    'config_ver_err': 'Your config file version isn\'t supported, upgrade your config / use fresh one supplied by default.',
     'ssl_ctx_err': 'Can\'t get SSL context: check your certificate and / or key.',
     'ssl_cert_err': 'SSL Error: Can\'t find fullchain.pem / privkey.pem in certs folder.',
     'mysql_err': 'I don\'t know what you\'re trying to connect to, shutting down.',
-    'config_new': 'You need to adjust default settings in config.json before running this file.',
     'exit_msg': 'Shutting down...',
     'info_ext_shtdwn': 'Shutdown attempt detected from external IP, ignoring...'
 }

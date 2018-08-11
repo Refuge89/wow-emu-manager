@@ -30,6 +30,17 @@ from wem_strings import MSG_SYS, MSG_FRONT
 # Core Machinery #
 ##################
 
+class ConfigError(Exception):
+    """Generic config error."""
+
+    pass
+
+
+class ConfigVersionError(Exception):
+    """Raised when config version is different from what we support."""
+
+    pass
+
 
 def safe_exit(msg, turn_off_tornado=True):
     """Stop Tornado's IOLoop gracefully (if required) and then exit.
@@ -52,67 +63,71 @@ def safe_exit(msg, turn_off_tornado=True):
 def get_config():
     """Grab config file and return it as python object.
 
-    Load config.json from current folder,
-    create config if it doesn't exist, decode and return as dictionary.
+    Load config.json from current folder, decode and return as dictionary.
     """
-    # FIXME: Does this qualify as a hack?
-    # For me it's an elegant way to avoid additional import.
+    # Try to open the file, first
     try:
-        # If config.json exists -- open it for read access
         with open("config.json", mode="r", encoding="utf8") as config_file:
-            # Decode JSON into Python ojbects
-            local_CONFIG = json.loads( config_file.read() )
+            # Load JSON string from file
+            cfg_obj = json.loads( config_file.read() )
 
-    # If we cannot open file for one reason or another:
+    # If we can't open file
     except OSError:
-        # Write a new file
-        with open("config.json", mode="w", encoding="utf8") as config_file:
-            # Prepare the default config
-            local_CONFIG = {
-                "SITENAME": "main",
-                "DEVELOPER": False,
-                "PAGE_TITLE": "WoW-Emu-Manager",
-                "SECRET": secrets.token_hex(128),
-                "SITE_PORT": "8000",
-                "HTTPS": False,
-                "HTTPS_PORT": "443",
-                "DB_USER": "",
-                "DB_PASS": "",
-                "DB_ADDR": "127.0.0.1",
-                "DB_PORT": "3306",
-                "DB_NAME_CHARS": "",
-                "DB_NAME_CORE": "",
-                "DB_NAME_REALMD": "",
-                "REG_DISABLED": False,
-                "LOGIN_DISABLED": False,
-                "DEFAULT_ADDON": 1 }
+        safe_exit( MSG_SYS['config_err'], False )
 
-            # Encode Python objects into JSON string
-            config_file.write( json.dumps(local_CONFIG, indent=4) )
-
+    # If we have problems decoding JSON
     except json.decoder.JSONDecodeError:
         safe_exit( MSG_SYS['config_err'], False )
 
-    config_error = False
+    try:
+        # If we don't support this config version anymore (or yet)
+        if cfg_obj['CFG_VER'] != 2:
+            raise ConfigVersionError
 
-    # Check if config needs to be adjusted
-    if ( not local_CONFIG['SECRET'] ):
-        config_error = True
-    if ( not local_CONFIG['DB_USER'] ):
-        config_error = True
-    if ( not local_CONFIG['DB_PASS'] ):
-        config_error = True
-    if ( not local_CONFIG['DB_NAME_CHARS'] ):
-        config_error = True
-    if ( not local_CONFIG['DB_NAME_CORE'] ):
-        config_error = True
-    if ( not local_CONFIG['DB_NAME_REALMD'] ):
-        config_error = True
+        # If any of these will not match expected type,
+        # they'll be marked as False.
+        fields = (
+            isinstance(cfg_obj['DEVELOPER'], bool),
+            isinstance(cfg_obj['TITLEBAR_TEXT'], str),
+            isinstance(cfg_obj['SECRET'], str),
+            isinstance(cfg_obj['SITE_PORT'], int),
+            isinstance(cfg_obj['HTTPS'], bool),
+            isinstance(cfg_obj['HTTPS_PORT'], int),
+            isinstance(cfg_obj['DB_USER'], str),
+            isinstance(cfg_obj['DB_PASS'], str),
+            isinstance(cfg_obj['DB_ADDR'], str),
+            isinstance(cfg_obj['DB_PORT'], int),
+            isinstance(cfg_obj['DB_NAME_CHARS'], str),
+            isinstance(cfg_obj['DB_NAME_CORE'], str),
+            isinstance(cfg_obj['DB_NAME_REALMD'], str),
+            isinstance(cfg_obj['REG_DISABLED'], bool),
+            isinstance(cfg_obj['LOGIN_DISABLED'], bool),
+            isinstance(cfg_obj['DEFAULT_ADDON'], int)
+        )
 
-    if (config_error):
-        safe_exit( MSG_SYS['config_new'], False )
+        # All fields are okay?
+        for f in fields:
+            if f:
+                pass
+            else:
+                raise ConfigError
 
-    return local_CONFIG
+        # Generate SECRET for user.
+        if cfg_obj['SECRET'] == "CHANGEME":
+            with open("config.json", mode="w", encoding="utf8") as config_file:
+                cfg_obj['SECRET'] = secrets.token_hex(128)
+                config_file.write( json.dumps( cfg_obj, indent=4 ) )
+
+    except ConfigError:
+        safe_exit( MSG_SYS['config_err'], False )
+
+    except ConfigVersionError:
+        safe_exit( MSG_SYS['config_ver_err'], False )
+
+    except KeyError:
+        safe_exit( MSG_SYS['config_err'], False )
+
+    return cfg_obj
 
 
 @contextmanager
@@ -225,8 +240,8 @@ def main():
     modules = {'FormatNews': FormatNews }
 
     # Tornado webserver settings
-    settings = { 'template_path': "templates/" + CONFIG['SITENAME'],
-                 'static_path': "static/" + CONFIG['SITENAME'],
+    settings = { 'template_path': "templates",
+                 'static_path': "static",
                  'cookie_secret': CONFIG['SECRET'],
                  'xsrf_cookies': True,
                  'autoreload': False,
@@ -307,7 +322,7 @@ class IndexHandler(tornado.web.RequestHandler):
     def initialize(self):
         """Allow you to __init__ everything you need for your subclass."""
         self.DATA = {}
-        self.DATA['PAGE_TITLE'] = CONFIG['PAGE_TITLE']
+        self.DATA['PAGE_TITLE'] = CONFIG['TITLEBAR_TEXT']
 
         # Check the user-cookie for active login and reject it in case
         # there are any special characters in it.
