@@ -30,6 +30,7 @@ from wem_strings import MSG_SYS, MSG_FRONT
 # Core Machinery #
 ##################
 
+
 class ConfigError(Exception):
     """Generic config error."""
 
@@ -40,6 +41,88 @@ class ConfigVersionError(Exception):
     """Raised when config version is different from what we support."""
 
     pass
+
+
+class Config:
+    """Organized way to interface with config as entity."""
+
+    def __init__(self):
+        self.__cfg_obj = None
+        self.__load()
+        self.__check()
+
+    def __load(self):
+        # Try to open the file, first
+        try:
+            with open("config.json", mode="r", encoding="utf8") as config_file:
+                # Load JSON string from file
+                self.__cfg_obj = json.loads( config_file.read() )
+
+        # If we can't open file
+        except OSError:
+            safe_exit( MSG_SYS['config_err'], False )
+
+        # If we have problems decoding JSON
+        except json.decoder.JSONDecodeError:
+            safe_exit( MSG_SYS['config_err'], False )
+
+    def __check(self):
+        try:
+            # If we don't support this config version anymore (or yet)
+            if self.__cfg_obj['CFG_VER'] != 2:
+                raise ConfigVersionError
+
+            # If any of these will not match expected type,
+            # they'll be marked as False.
+            fields = (
+                isinstance(self.__cfg_obj['DEVELOPER'], bool),
+                isinstance(self.__cfg_obj['TITLEBAR_TEXT'], str),
+                isinstance(self.__cfg_obj['SECRET'], str),
+                isinstance(self.__cfg_obj['SITE_PORT'], int),
+                isinstance(self.__cfg_obj['HTTPS'], bool),
+                isinstance(self.__cfg_obj['HTTPS_PORT'], int),
+                isinstance(self.__cfg_obj['DB_USER'], str),
+                isinstance(self.__cfg_obj['DB_PASS'], str),
+                isinstance(self.__cfg_obj['DB_ADDR'], str),
+                isinstance(self.__cfg_obj['DB_PORT'], int),
+                isinstance(self.__cfg_obj['DB_NAME_CHARS'], str),
+                isinstance(self.__cfg_obj['DB_NAME_CORE'], str),
+                isinstance(self.__cfg_obj['DB_NAME_REALMD'], str),
+                isinstance(self.__cfg_obj['REG_DISABLED'], bool),
+                isinstance(self.__cfg_obj['LOGIN_DISABLED'], bool),
+                isinstance(self.__cfg_obj['DEFAULT_ADDON'], int)
+            )
+
+            # All fields are okay?
+            for f in fields:
+                if f:
+                    pass
+                else:
+                    raise ConfigError
+
+            # Generate SECRET for user, if needed.
+            if self.__cfg_obj['SECRET'] == "CHANGEME":
+                self.__cfg_obj['SECRET'] = secrets.token_hex(128)
+                self.commit()
+
+        except ConfigError:
+            safe_exit( MSG_SYS['config_err'], False )
+
+        except ConfigVersionError:
+            safe_exit( MSG_SYS['config_ver_err'], False )
+
+        except KeyError:
+            safe_exit( MSG_SYS['config_err'], False )
+
+    def commit(self):
+        with open("config.json", mode="w", encoding="utf8") as config_file:
+            config_file.write( json.dumps( self.__cfg_obj, indent=4 ) )
+
+    def get_field(self, field):
+        return self.__cfg_obj[field]
+
+    def set_field(self, field, value):
+        self.__cfg_obj[field] = value
 
 
 def safe_exit(msg, turn_off_tornado=True):
@@ -60,76 +143,6 @@ def safe_exit(msg, turn_off_tornado=True):
         exit()
 
 
-def get_config():
-    """Grab config file and return it as python object.
-
-    Load config.json from current folder, decode and return as dictionary.
-    """
-    # Try to open the file, first
-    try:
-        with open("config.json", mode="r", encoding="utf8") as config_file:
-            # Load JSON string from file
-            cfg_obj = json.loads( config_file.read() )
-
-    # If we can't open file
-    except OSError:
-        safe_exit( MSG_SYS['config_err'], False )
-
-    # If we have problems decoding JSON
-    except json.decoder.JSONDecodeError:
-        safe_exit( MSG_SYS['config_err'], False )
-
-    try:
-        # If we don't support this config version anymore (or yet)
-        if cfg_obj['CFG_VER'] != 2:
-            raise ConfigVersionError
-
-        # If any of these will not match expected type,
-        # they'll be marked as False.
-        fields = (
-            isinstance(cfg_obj['DEVELOPER'], bool),
-            isinstance(cfg_obj['TITLEBAR_TEXT'], str),
-            isinstance(cfg_obj['SECRET'], str),
-            isinstance(cfg_obj['SITE_PORT'], int),
-            isinstance(cfg_obj['HTTPS'], bool),
-            isinstance(cfg_obj['HTTPS_PORT'], int),
-            isinstance(cfg_obj['DB_USER'], str),
-            isinstance(cfg_obj['DB_PASS'], str),
-            isinstance(cfg_obj['DB_ADDR'], str),
-            isinstance(cfg_obj['DB_PORT'], int),
-            isinstance(cfg_obj['DB_NAME_CHARS'], str),
-            isinstance(cfg_obj['DB_NAME_CORE'], str),
-            isinstance(cfg_obj['DB_NAME_REALMD'], str),
-            isinstance(cfg_obj['REG_DISABLED'], bool),
-            isinstance(cfg_obj['LOGIN_DISABLED'], bool),
-            isinstance(cfg_obj['DEFAULT_ADDON'], int)
-        )
-
-        # All fields are okay?
-        for f in fields:
-            if f:
-                pass
-            else:
-                raise ConfigError
-
-        # Generate SECRET for user.
-        if cfg_obj['SECRET'] == "CHANGEME":
-            with open("config.json", mode="w", encoding="utf8") as config_file:
-                cfg_obj['SECRET'] = secrets.token_hex(128)
-                config_file.write( json.dumps( cfg_obj, indent=4 ) )
-
-    except ConfigError:
-        safe_exit( MSG_SYS['config_err'], False )
-
-    except ConfigVersionError:
-        safe_exit( MSG_SYS['config_ver_err'], False )
-
-    except KeyError:
-        safe_exit( MSG_SYS['config_err'], False )
-
-    return cfg_obj
-
-
 @contextmanager
 def call_db():
     """Grab DB connections, yield a dictionary with mapped connection objects.
@@ -138,15 +151,15 @@ def call_db():
     """
     # It is assumed that you use one user to access all three DB
     tmp_cfg = {
-        'host': CONFIG['DB_ADDR'],
-        'port': CONFIG['DB_PORT'],
-        'user': CONFIG['DB_USER'],
-        'password': CONFIG['DB_PASS'] }
+        'host': conf.get_field('DB_ADDR'),
+        'port': conf.get_field('DB_PORT'),
+        'user': conf.get_field('DB_USER'),
+        'password': conf.get_field('DB_PASS') }
 
     conns = { 'internal': sqlite3.connect('internal.db'),
-              'chars': mariadb.connect(database=CONFIG['DB_NAME_CHARS'], **tmp_cfg),
-              'core': mariadb.connect(database=CONFIG['DB_NAME_CORE'], **tmp_cfg),
-              'realmd': mariadb.connect(database=CONFIG['DB_NAME_REALMD'], **tmp_cfg) }
+              'chars': mariadb.connect(database=conf.get_field('DB_NAME_CHARS'), **tmp_cfg),
+              'core': mariadb.connect(database=conf.get_field('DB_NAME_CORE'), **tmp_cfg),
+              'realmd': mariadb.connect(database=conf.get_field('DB_NAME_REALMD'), **tmp_cfg) }
 
     try:
         yield conns
@@ -242,7 +255,7 @@ def main():
     # Tornado webserver settings
     settings = { 'template_path': "templates",
                  'static_path': "static",
-                 'cookie_secret': CONFIG['SECRET'],
+                 'cookie_secret': conf.get_field('SECRET'),
                  'xsrf_cookies': True,
                  'autoreload': False,
                  'ui_modules': modules,
@@ -250,7 +263,7 @@ def main():
                  'compiled_template_cache': True }
 
     # Makes your life easier.
-    if ( CONFIG['DEVELOPER'] ):
+    if ( conf.get_field('DEVELOPER') ):
         # No need to restart the core each time you update templates.
         settings['compiled_template_cache'] = False
         settings['autoreload'] = True
@@ -269,7 +282,7 @@ def main():
 
     site = tornado.web.Application(handlers=h, **settings)
 
-    if ( CONFIG['HTTPS'] ):
+    if ( conf.get_field('HTTPS') ):
         # Prepare SSL
         ssl_context = ssl.SSLContext()
 
@@ -286,7 +299,7 @@ def main():
             return
 
         https_server = tornado.httpserver.HTTPServer(site, ssl_options=ssl_context)
-        https_server.listen( CONFIG['HTTPS_PORT'] )
+        https_server.listen( conf.get_field('HTTPS_PORT') )
 
     else:
         https_server = None
@@ -296,7 +309,7 @@ def main():
         site = tornado.web.Application( handlers=[ (r"/.*", HTTPSRedirectHandler) ] )
 
     http_server = tornado.httpserver.HTTPServer(site)
-    http_server.listen( CONFIG['SITE_PORT'] )
+    http_server.listen( conf.get_field('SITE_PORT') )
 
     # Main event and I/O loop. Any code AFTER this should use safe_exit()
     tornado.ioloop.IOLoop.instance().start()
@@ -322,7 +335,7 @@ class IndexHandler(tornado.web.RequestHandler):
     def initialize(self):
         """Allow you to __init__ everything you need for your subclass."""
         self.DATA = {}
-        self.DATA['PAGE_TITLE'] = CONFIG['TITLEBAR_TEXT']
+        self.DATA['PAGE_TITLE'] = conf.get_field('TITLEBAR_TEXT')
 
         # Check the user-cookie for active login and reject it in case
         # there are any special characters in it.
@@ -439,7 +452,7 @@ class ServerStatusHandler(IndexHandler):
 class LoginHandler(IndexHandler):
 
     def post(self):
-        if ( CONFIG['LOGIN_DISABLED'] ):
+        if ( conf.get_field('LOGIN_DISABLED') ):
             self.send_message( MSG_FRONT['login_err'] )
             return
 
@@ -484,13 +497,13 @@ class RegistrationHandler(IndexHandler):
     def get(self):
         if ( self.DATA['USERNAME'] ):
             self.redirect("/")
-        elif ( CONFIG['REG_DISABLED'] ):
+        elif ( conf.get_field('REG_DISABLED') ):
             self.send_message( MSG_FRONT['reg_dis'] )
         else:
             self.render("register.html", DATA=self.DATA)
 
     def post(self):
-        if ( CONFIG['REG_DISABLED'] ):
+        if ( conf.get_field('REG_DISABLED') ):
             self.send_message( MSG_FRONT['reg_dis'] )
             return
 
@@ -515,7 +528,7 @@ class RegistrationHandler(IndexHandler):
             # Register new account
             query = "INSERT INTO `account` (`username`, `sha_pass_hash`, `expansion`) \
                      VALUES ('{0}', '{1}', '{2}') \
-            ".format( regdata['login'], regdata['hash'], CONFIG['DEFAULT_ADDON'] )
+            ".format( regdata['login'], regdata['hash'], conf.get_field('DEFAULT_ADDON') )
 
             reach_db("realmd", query, "fetchone")
 
@@ -567,8 +580,8 @@ class HTTPSRedirectHandler(tornado.web.RequestHandler):
             # Take the IP part only
             request = request.rsplit(":", 1)[0]
 
-        if ( CONFIG['HTTPS_PORT'] != "443" ):
-            request += ":" + CONFIG['HTTPS_PORT']
+        if ( conf.get_field('HTTPS_PORT') != 443 ):
+            request += ":" + str( conf.get_field('HTTPS_PORT') )
 
         self.redirect('https://' + request, permanent=False)
 
@@ -597,7 +610,7 @@ class FormatNews(tornado.web.UIModule):
 
 # Make sure we aren't being used as someone's module!
 if __name__ == "__main__":
-    CONFIG = get_config()
+    conf = Config()
 
     # This closes DB connections at the end on it's own!
     with call_db() as conn_bundle:
